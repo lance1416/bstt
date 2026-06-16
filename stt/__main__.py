@@ -1,7 +1,12 @@
 import argparse
 import logging
 import sys
+import warnings
 from pathlib import Path
+
+# Suppress SyntaxWarnings from third-party packages (e.g. invalid escape sequences
+# in funasr / faster-whisper compiled before Python 3.12 tightened the rules).
+warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm

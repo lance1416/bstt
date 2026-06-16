@@ -23,9 +23,16 @@ from PySide6.QtWidgets import (
 
 from stt import queue
 
+_STATUS_DISPLAY = {
+    "done": "已完成",
+    "failed": "失败",
+    "pending": "待处理",
+    "in_progress": "处理中",
+}
+
 
 class JobTableModel(QAbstractTableModel):
-    _COLUMNS = ("Filename", "Status", "Completed", "Error")
+    _COLUMNS = ("文件名", "状态", "完成时间", "错误信息")
     _BRUSHES: dict[str, QBrush] = {}
 
     @classmethod
@@ -75,7 +82,7 @@ class JobTableModel(QAbstractTableModel):
             if col == 0:
                 return Path(row["file_path"]).name
             if col == 1:
-                return row["status"]
+                return _STATUS_DISPLAY.get(row["status"], row["status"])
             if col == 2:
                 return row.get("completed_at") or row.get("started_at") or ""
             if col == 3:
@@ -110,7 +117,7 @@ class JobsTab(QWidget):
 
         # Filter
         filter_edit = QLineEdit()
-        filter_edit.setPlaceholderText("Filter by filename…")
+        filter_edit.setPlaceholderText("按文件名筛选…")
         filter_edit.textChanged.connect(self._proxy.setFilterFixedString)
 
         # Table
@@ -122,9 +129,9 @@ class JobsTab(QWidget):
         self._table.doubleClicked.connect(self._on_double_click)
 
         # Buttons
-        retry_btn = QPushButton("Retry Failed")
+        retry_btn = QPushButton("重试失败项")
         retry_btn.clicked.connect(self._retry_failed)
-        reset_btn = QPushButton("Reset All")
+        reset_btn = QPushButton("全部重置")
         reset_btn.clicked.connect(self._reset_all)
         self._status_label = QLabel()
         btn_row = QHBoxLayout()
@@ -147,9 +154,9 @@ class JobsTab(QWidget):
             counts = queue.status_counts(self.db_path)
             done = counts.get("done", 0)
             failed = counts.get("failed", 0)
-            self._status_label.setText(f"{done} done, {failed} failed / {total} total")
+            self._status_label.setText(f"{done} 已完成，{failed} 失败 / {total} 总计")
         else:
-            self._status_label.setText("No database found. Run the pipeline first.")
+            self._status_label.setText("未找到数据库，请先运行处理流程。")
 
     def start_auto_refresh(self) -> None:
         self._timer.start()
@@ -168,13 +175,13 @@ class JobsTab(QWidget):
         n = queue.retry_failed(self.db_path)
         self.refresh()
         if n:
-            QMessageBox.information(self, "Retry Failed", f"Reset {n} failed job(s) to pending.")
+            QMessageBox.information(self, "重试失败项", f"已将 {n} 个失败任务重置为待处理。")
 
     def _reset_all(self) -> None:
         reply = QMessageBox.question(
             self,
-            "Reset All",
-            "Reset all jobs to pending? This clears done and failed status.",
+            "全部重置",
+            "确认将所有任务重置为待处理？这将清除已完成和失败的状态。",
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.Yes:

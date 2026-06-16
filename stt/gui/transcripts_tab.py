@@ -17,7 +17,7 @@ from stt import writer
 
 
 class SearchResultModel(QAbstractTableModel):
-    _COLUMNS = ("Date", "Filename", "Excerpt")
+    _COLUMNS = ("日期", "文件名", "摘要")
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -82,9 +82,9 @@ class TranscriptsTab(QWidget):
 
         # Search row
         self._search_edit = QLineEdit()
-        self._search_edit.setPlaceholderText("Search transcripts…")
+        self._search_edit.setPlaceholderText("搜索转录内容…")
         self._search_edit.returnPressed.connect(self._search)
-        search_btn = QPushButton("Search")
+        search_btn = QPushButton("搜索")
         search_btn.clicked.connect(self._search)
         search_row = QHBoxLayout()
         search_row.addWidget(self._search_edit, 1)
@@ -124,7 +124,7 @@ class TranscriptsTab(QWidget):
         self._current_query = query
         if not Path(self.db_path).exists():
             self._model.set_results([], query)
-            self._viewer.setPlainText("No database found. Run the pipeline first.")
+            self._viewer.setPlainText("未找到数据库，请先运行处理流程。")
             return
         try:
             rows = writer.search_transcripts(self.db_path, query)
@@ -162,4 +162,4 @@ class TranscriptsTab(QWidget):
         if result:
             self._viewer.setPlainText(result["text"])
         else:
-            self._viewer.setPlainText("(no transcript found)")
+            self._viewer.setPlainText("（未找到转录）")

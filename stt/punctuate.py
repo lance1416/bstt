@@ -17,6 +17,12 @@ class _StubModule(types.ModuleType):
         )
 
     def __getattr__(self, name: str) -> "_StubModule":
+        # Dunder attributes that don't exist should raise AttributeError so that
+        # Python introspection (hasattr, functools.unwrap, etc.) works correctly.
+        # Without this, functools.unwrap follows __wrapped__ → stub → __wrapped__
+        # forever and raises "ValueError: wrapper loop when unwrapping".
+        if name.startswith("__") and name.endswith("__"):
+            raise AttributeError(name)
         full = f"{self.__name__}.{name}"
         if full not in sys.modules:
             sub = _StubModule(full)

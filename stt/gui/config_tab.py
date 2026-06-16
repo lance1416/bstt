@@ -56,44 +56,45 @@ class ConfigTab(QWidget):
         settings = Settings.load(settings_path)
 
         # --- Model settings group ---
-        model_group = QGroupBox("Model Settings")
+        model_group = QGroupBox("模型设置")
         form = QFormLayout(model_group)
 
         self._size_combo = QComboBox()
         self._size_combo.addItems(["tiny", "base", "small", "medium", "large-v2", "large-v3"])
         self._size_combo.setCurrentText(settings.model.size)
-        form.addRow("Model size:", self._size_combo)
+        form.addRow("模型大小：", self._size_combo)
 
         self._device_combo = QComboBox()
         self._device_combo.addItems(["auto", "cuda", "cpu"])
         self._device_combo.setCurrentText(settings.model.device)
-        form.addRow("Device:", self._device_combo)
+        form.addRow("运算设备：", self._device_combo)
 
         self._language_edit = QLineEdit(settings.model.language)
-        form.addRow("Language:", self._language_edit)
+        form.addRow("语言：", self._language_edit)
 
         self._beam_spin = QSpinBox()
         self._beam_spin.setRange(1, 10)
         self._beam_spin.setValue(settings.model.beam_size)
-        form.addRow("Beam size:", self._beam_spin)
+        form.addRow("束宽：", self._beam_spin)
 
-        self._punc_check = QCheckBox("Enable punctuation")
+        self._punc_check = QCheckBox("启用标点")
         self._punc_check.setChecked(settings.punctuation.enabled)
-        form.addRow("Punctuation:", self._punc_check)
+        form.addRow("标点：", self._punc_check)
 
         self._punc_model_edit = QLineEdit(settings.punctuation.model)
         self._punc_model_edit.setVisible(settings.punctuation.enabled)
         self._punc_check.toggled.connect(self._punc_model_edit.setVisible)
-        form.addRow("Punctuation model:", self._punc_model_edit)
+        form.addRow("标点模型：", self._punc_model_edit)
 
         # --- Fillers group ---
-        fillers_group = QGroupBox("Filler Words")
+        fillers_group = QGroupBox("语气词")
         fillers_layout = QVBoxLayout(fillers_group)
         self._fillers_list = QListWidget()
+        self._fillers_list.setMinimumHeight(120)
         self._load_fillers()
-        add_filler_btn = QPushButton("Add")
+        add_filler_btn = QPushButton("添加")
         add_filler_btn.clicked.connect(self._add_filler)
-        remove_filler_btn = QPushButton("Remove")
+        remove_filler_btn = QPushButton("删除")
         remove_filler_btn.clicked.connect(self._remove_filler)
         filler_btn_row = QHBoxLayout()
         filler_btn_row.addWidget(add_filler_btn)
@@ -103,15 +104,16 @@ class ConfigTab(QWidget):
         fillers_layout.addLayout(filler_btn_row)
 
         # --- Terms group ---
-        terms_group = QGroupBox("Buddhist Terms Corrections")
+        terms_group = QGroupBox("佛教术语纠正")
         terms_layout = QVBoxLayout(terms_group)
         self._terms_table = QTableWidget(0, 2)
-        self._terms_table.setHorizontalHeaderLabels(["Wrong form", "Correct form"])
+        self._terms_table.setHorizontalHeaderLabels(["错误形式", "正确形式"])
+        self._terms_table.setMinimumHeight(120)
         self._terms_table.horizontalHeader().setStretchLastSection(True)
         self._load_terms()
-        add_term_btn = QPushButton("Add row")
+        add_term_btn = QPushButton("添加行")
         add_term_btn.clicked.connect(self._add_term_row)
-        remove_term_btn = QPushButton("Remove row")
+        remove_term_btn = QPushButton("删除行")
         remove_term_btn.clicked.connect(self._remove_term_row)
         term_btn_row = QHBoxLayout()
         term_btn_row.addWidget(add_term_btn)
@@ -121,7 +123,7 @@ class ConfigTab(QWidget):
         terms_layout.addLayout(term_btn_row)
 
         # --- Save button ---
-        save_btn = QPushButton("Save Settings")
+        save_btn = QPushButton("保存设置")
         save_btn.clicked.connect(self._save)
 
         # Scroll area for all content
@@ -160,7 +162,7 @@ class ConfigTab(QWidget):
                 self._terms_table.setItem(row, 1, QTableWidgetItem(correct))
 
     def _add_filler(self) -> None:
-        text, ok = QInputDialog.getText(self, "Add Filler Word", "Filler word:")
+        text, ok = QInputDialog.getText(self, "添加语气词", "语气词：")
         if ok and text.strip():
             self._fillers_list.addItem(text.strip())
 
@@ -194,9 +196,9 @@ class ConfigTab(QWidget):
             except OSError as e:
                 failed.append(f"{label}: {e}")
         if failed:
-            QMessageBox.warning(self, "Save Failed", "\n".join(failed))
+            QMessageBox.warning(self, "保存失败", "\n".join(failed))
         else:
-            QMessageBox.information(self, "Saved", "Settings saved successfully.")
+            QMessageBox.information(self, "已保存", "设置保存成功。")
 
     def _save_settings(self) -> None:
         existing = Settings.load(self.settings_path)

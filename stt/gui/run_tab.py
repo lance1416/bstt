@@ -40,20 +40,20 @@ class RunTab(QWidget):
 
         # Folder picker
         self._folder_edit = QLineEdit()
-        self._folder_edit.setPlaceholderText("Select input folder…")
+        self._folder_edit.setPlaceholderText("选择输入文件夹…")
         last_folder = self._qsettings.value("last_input_folder", "")
         if last_folder:
             self._folder_edit.setText(str(last_folder))
-        browse_btn = QPushButton("Browse")
+        browse_btn = QPushButton("浏览")
         browse_btn.clicked.connect(self._browse)
         folder_row = QHBoxLayout()
-        folder_row.addWidget(QLabel("Input folder:"))
+        folder_row.addWidget(QLabel("输入文件夹："))
         folder_row.addWidget(self._folder_edit, 1)
         folder_row.addWidget(browse_btn)
 
         # Start / Stop
-        self._start_btn = QPushButton("Start")
-        self._stop_btn = QPushButton("Stop")
+        self._start_btn = QPushButton("开始")
+        self._stop_btn = QPushButton("停止")
         self._stop_btn.setEnabled(False)
         self._start_btn.clicked.connect(self._start)
         self._stop_btn.clicked.connect(self._stop)
@@ -62,12 +62,16 @@ class RunTab(QWidget):
         btn_row.addWidget(self._stop_btn)
         btn_row.addStretch()
 
-        # Progress bars
+        # Progress bars — start in static idle state (setMaximum(0) would animate)
         self._queue_bar = QProgressBar()
-        self._queue_bar.setMaximum(0)
+        self._queue_bar.setRange(0, 1)
+        self._queue_bar.setValue(0)
+        self._queue_bar.setFormat("等待中…")
         self._queue_bar.setTextVisible(True)
         self._file_bar = QProgressBar()
-        self._file_bar.setMaximum(0)
+        self._file_bar.setRange(0, 1)
+        self._file_bar.setValue(0)
+        self._file_bar.setFormat("等待中…")
         self._file_bar.setTextVisible(True)
 
         # Log
@@ -77,16 +81,16 @@ class RunTab(QWidget):
         layout = QVBoxLayout(self)
         layout.addLayout(folder_row)
         layout.addLayout(btn_row)
-        layout.addWidget(QLabel("Queue progress:"))
+        layout.addWidget(QLabel("队列进度："))
         layout.addWidget(self._queue_bar)
-        layout.addWidget(QLabel("File progress:"))
+        layout.addWidget(QLabel("文件进度："))
         layout.addWidget(self._file_bar)
-        layout.addWidget(QLabel("Log:"))
+        layout.addWidget(QLabel("日志："))
         layout.addWidget(self._log, 1)
 
     def _browse(self) -> None:
         folder = QFileDialog.getExistingDirectory(
-            self, "Select Input Folder", self._folder_edit.text()
+            self, "选择输入文件夹", self._folder_edit.text()
         )
         if folder:
             self._folder_edit.setText(folder)
@@ -95,7 +99,7 @@ class RunTab(QWidget):
     def _start(self) -> None:
         folder = self._folder_edit.text().strip()
         if not folder:
-            QMessageBox.warning(self, "No folder", "Please select an input folder first.")
+            QMessageBox.warning(self, "未选择文件夹", "请先选择输入文件夹。")
             return
         self._qsettings.setValue("last_input_folder", folder)
         settings = Settings.load(self.settings_path)
@@ -114,10 +118,9 @@ class RunTab(QWidget):
         self._start_btn.setEnabled(False)
         self._stop_btn.setEnabled(True)
         self._log.clear()
-        self._queue_bar.setMaximum(0)
-        self._queue_bar.setValue(0)
-        self._file_bar.setMaximum(0)
-        self._file_bar.setValue(0)
+        # Indeterminate spinner while queue size is not yet known
+        self._queue_bar.setRange(0, 0)
+        self._file_bar.setRange(0, 0)
         self._worker.start()
         self.pipeline_started.emit()
 
@@ -130,7 +133,7 @@ class RunTab(QWidget):
         self._queue_bar.setMaximum(e.total)
         self._queue_bar.setValue(e.done + e.failed)
         self._queue_bar.setFormat(
-            f"Queue: {e.done} done, {e.failed} failed / {e.total} total"
+            f"队列：{e.done} 已完成，{e.failed} 失败 / {e.total} 总计"
         )
 
     def _on_segment(self, e: SegmentEvent) -> None:
@@ -139,7 +142,7 @@ class RunTab(QWidget):
         self._file_bar.setMaximum(total)
         self._file_bar.setValue(current)
         name = Path(e.file_path).stem[:30]
-        self._file_bar.setFormat(f"{name}: {current}s / {total}s")
+        self._file_bar.setFormat(f"{name}：{current}秒 / {total}秒")
 
     def _append_log(self, line: str) -> None:
         self._log.appendPlainText(line)
@@ -150,9 +153,16 @@ class RunTab(QWidget):
         self._start_btn.setEnabled(True)
         self._stop_btn.setEnabled(False)
         self._worker = None
+        # Return progress bars to static idle state
+        self._queue_bar.setRange(0, 1)
+        self._queue_bar.setValue(0)
+        self._queue_bar.setFormat("等待中…")
+        self._file_bar.setRange(0, 1)
+        self._file_bar.setValue(0)
+        self._file_bar.setFormat("等待中…")
         self.pipeline_finished.emit()
 
     def _on_error(self, msg: str) -> None:
         # worker always emits finished() after error() in its finally block,
         # so _on_finished handles button reset and pipeline_finished signal
-        QMessageBox.critical(self, "Pipeline Error", msg)
+        QMessageBox.critical(self, "处理出错", msg)

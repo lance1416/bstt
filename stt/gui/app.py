@@ -11,6 +11,8 @@ _DEFAULT_SETTINGS = "config/settings.toml"
 
 
 def launch() -> None:
+    from stt import log
+    log.setup()
     app = QApplication.instance() or QApplication(sys.argv)
     window = MainWindow(
         db_path=_DEFAULT_DB,

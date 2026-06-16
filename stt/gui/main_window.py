@@ -15,7 +15,7 @@ class MainWindow(QMainWindow):
         settings_path: str,
     ) -> None:
         super().__init__()
-        self.setWindowTitle("STT Pipeline")
+        self.setWindowTitle("语音转录系统")
         self.setMinimumSize(900, 600)
 
         self._run_tab = RunTab(db_path, output_dir, config_dir, settings_path)
@@ -24,10 +24,10 @@ class MainWindow(QMainWindow):
         self._config_tab = ConfigTab(config_dir, settings_path)
 
         self._tabs = QTabWidget()
-        self._tabs.addTab(self._run_tab, "Run")
-        self._tabs.addTab(self._jobs_tab, "Jobs")
-        self._tabs.addTab(self._transcripts_tab, "Transcripts")
-        self._tabs.addTab(self._config_tab, "Config")
+        self._tabs.addTab(self._run_tab, "运行")
+        self._tabs.addTab(self._jobs_tab, "任务")
+        self._tabs.addTab(self._transcripts_tab, "转录文本")
+        self._tabs.addTab(self._config_tab, "设置")
         self.setCentralWidget(self._tabs)
 
         # Cross-tab wiring
