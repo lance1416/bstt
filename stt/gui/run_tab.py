@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from stt.config import Settings
 from stt.gui.worker import PipelineWorker
+from stt.pipeline import ProgressEvent, SegmentEvent
 
 
 class RunTab(QWidget):
@@ -125,20 +126,14 @@ class RunTab(QWidget):
             self._worker.stop()
         self._stop_btn.setEnabled(False)
 
-    def _on_progress(self, event: object) -> None:
-        from stt.pipeline import ProgressEvent
-
-        e: ProgressEvent = event  # type: ignore[assignment]
+    def _on_progress(self, e: ProgressEvent) -> None:
         self._queue_bar.setMaximum(e.total)
         self._queue_bar.setValue(e.done + e.failed)
         self._queue_bar.setFormat(
             f"Queue: {e.done} done, {e.failed} failed / {e.total} total"
         )
 
-    def _on_segment(self, event: object) -> None:
-        from stt.pipeline import SegmentEvent
-
-        e: SegmentEvent = event  # type: ignore[assignment]
+    def _on_segment(self, e: SegmentEvent) -> None:
         total = max(1, int(e.total_seconds))
         current = int(e.current_seconds)
         self._file_bar.setMaximum(total)
