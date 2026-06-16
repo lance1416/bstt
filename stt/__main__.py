@@ -1,7 +1,11 @@
 import argparse
+import logging
 from pathlib import Path
 
-from stt import pipeline, queue
+from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
+
+from stt import log, pipeline, queue
 
 DEFAULT_DB = "stt.db"
 DEFAULT_OUTPUT = "output"
@@ -9,30 +13,70 @@ DEFAULT_CONFIG = "config"
 
 
 def _cmd_run(args: argparse.Namespace) -> None:
-    def on_progress(event: pipeline.ProgressEvent) -> None:
-        name = Path(event.file_path).name
-        print(f"[{event.done + event.failed}/{event.total}] {event.status.upper()}: {name}")
-
-    pipeline.run(
-        input_dir=args.input,
-        db_path=args.db,
-        output_dir=args.output,
-        config_dir=args.config,
-        on_progress=on_progress,
+    log.setup(
+        level=getattr(logging, args.log_level.upper(), logging.INFO),
+        log_file=args.log_file,
     )
-    print("Pipeline complete.")
+
+    job_bar = tqdm(
+        total=None,
+        desc="Queue",
+        unit="file",
+        position=0,
+        leave=True,
+        dynamic_ncols=True,
+    )
+    seg_bar = tqdm(
+        total=None,
+        desc="File ",
+        unit="s",
+        position=1,
+        leave=False,
+        dynamic_ncols=True,
+    )
+
+    def on_progress(event: pipeline.ProgressEvent) -> None:
+        job_bar.total = event.total
+        job_bar.n = event.done + event.failed
+        job_bar.set_postfix(done=event.done, failed=event.failed or None)
+        job_bar.refresh()
+        seg_bar.reset(total=0)
+        seg_bar.set_description("File ")
+
+    def on_segment(event: pipeline.SegmentEvent) -> None:
+        if seg_bar.total != event.total_seconds:
+            seg_bar.reset(total=event.total_seconds)
+            seg_bar.set_description(Path(event.file_path).stem[:20])
+        seg_bar.n = event.current_seconds
+        seg_bar.refresh()
+
+    with logging_redirect_tqdm(loggers=[log.get()]):
+        pipeline.run(
+            input_dir=args.input,
+            db_path=args.db,
+            output_dir=args.output,
+            config_dir=args.config,
+            on_progress=on_progress,
+            on_segment=on_segment,
+        )
+
+    seg_bar.close()
+    job_bar.close()
 
 
 def _cmd_status(args: argparse.Namespace) -> None:
     counts = queue.status_counts(args.db)
     if not counts:
-        print("No jobs found. Run `python -m stt run --input <dir>` first.")
+        print("No jobs found. Run `uv run python -m stt run --input <dir>` first.")
         return
+    total = sum(counts.values())
+    done = counts.get("done", 0)
+    print(f"Progress: {done}/{total} files ({done * 100 // total if total else 0}%)")
     for status, count in sorted(counts.items()):
         print(f"  {status}: {count}")
     failures = queue.failed_jobs(args.db)
     if failures:
-        print("\nFailed files:")
+        print(f"\nFailed files ({len(failures)}):")
         for job in failures:
             print(f"  {job['file_path']}\n    Error: {job['error']}")
 
@@ -51,6 +95,8 @@ def main() -> None:
     run_p.add_argument("--input", required=True, help="Directory of MP3 files")
     run_p.add_argument("--output", default=DEFAULT_OUTPUT, help="Output directory for .txt files")
     run_p.add_argument("--config", default=DEFAULT_CONFIG, help="Config directory")
+    run_p.add_argument("--log-file", default=None, metavar="PATH", help="Also write logs to this file")
+    run_p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Console log level (default: INFO)")
     run_p.set_defaults(func=_cmd_run)
 
     status_p = sub.add_parser("status", help="Show job queue status")
