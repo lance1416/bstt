@@ -17,17 +17,14 @@ def load_model(device: str = "cuda") -> WhisperModel:
 
 
 def transcribe_file(model: WhisperModel, file_path: str) -> list[Segment]:
-    try:
-        segments, _ = model.transcribe(file_path, language="yue", vad_filter=True)
-        return [Segment(start=s.start, end=s.end, text=s.text) for s in segments]
-    except RuntimeError as e:
-        if "CUDA" not in str(e):
-            raise
-        logging.warning("CUDA OOM for %s — retrying on CPU (this will be slow)", file_path)
-        cpu_model = WhisperModel("large-v3", device="cpu", compute_type="int8")
-        segments, _ = cpu_model.transcribe(file_path, language="yue", vad_filter=True)
-        return [Segment(start=s.start, end=s.end, text=s.text) for s in segments]
+    segments, _ = model.transcribe(file_path, language="yue", vad_filter=True)
+    return [Segment(start=s.start, end=s.end, text=s.text) for s in segments]
 
 
 def segments_to_text(segments: list[Segment]) -> str:
     return "\n".join(s.text.strip() for s in segments if s.text.strip())
+
+
+def is_cuda_oom(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return any(k in msg for k in ("cuda out of memory", "cublas_status_alloc_failed", "out of memory", "cudaerror"))

@@ -54,6 +54,12 @@ def run(
             writer.write_transcript(db_path, job["file_path"], date, clean_text)
             queue.mark_done(db_path, job["id"])
         except Exception as e:
+            if transcribe.is_cuda_oom(e):
+                logging.warning("CUDA OOM — switching to CPU for all remaining files")
+                del model
+                model = transcribe.load_model(device="cpu")
+                queue.reset_stale(db_path)  # requeue the current in_progress job
+                continue  # retry this job with CPU model on next iteration
             job_status = "failed"
             logging.error("Failed %s: %s", job["file_path"], e)
             queue.mark_failed(db_path, job["id"], str(e))
