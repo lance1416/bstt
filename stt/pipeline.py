@@ -1,3 +1,4 @@
+import threading
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable
@@ -28,6 +29,7 @@ def run(
     output_dir: str,
     config_dir: str,
     settings: Settings | None = None,
+    stop_event: threading.Event | None = None,
     on_progress: Callable[[ProgressEvent], None] | None = None,
     on_segment: Callable[[SegmentEvent], None] | None = None,
 ) -> None:
@@ -57,6 +59,9 @@ def run(
     model = transcribe.load_model(settings)
 
     while True:
+        if stop_event and stop_event.is_set():
+            logger.info("Pipeline stopped by request")
+            break
         job = queue.next_pending(db_path)
         if job is None:
             break

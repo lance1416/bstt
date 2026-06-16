@@ -16,6 +16,7 @@ def _conn(db_path: str):
 
 def init_db(db_path: str) -> None:
     with _conn(db_path) as conn:
+        conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS jobs (
                 id          INTEGER PRIMARY KEY,
@@ -110,3 +111,11 @@ def failed_jobs(db_path: str) -> list[dict]:
             "SELECT file_path, error FROM jobs WHERE status='failed'"
         ).fetchall()
         return [{"file_path": row["file_path"], "error": row["error"]} for row in rows]
+
+
+def list_jobs(db_path: str) -> list[dict]:
+    with _conn(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id, file_path, status, started_at, completed_at, error FROM jobs ORDER BY id"
+        ).fetchall()
+        return [dict(row) for row in rows]

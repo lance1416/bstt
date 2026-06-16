@@ -58,3 +58,25 @@ def test_parse_date_yyyy_mm_dd():
 
 def test_parse_date_unknown_returns_empty():
     assert writer.parse_date("unknown_lecture.mp3") == ""
+
+
+def test_search_transcripts_finds_match(tmp_db):
+    writer.write_transcript(tmp_db, "/hdd/a.mp3", "2017-10-18", "般若波羅蜜多心經")
+    writer.write_transcript(tmp_db, "/hdd/b.mp3", "2017-10-19", "阿彌陀佛聖號")
+    results = writer.search_transcripts(tmp_db, "般若")
+    assert len(results) == 1
+    assert "a.mp3" in results[0]["file_path"]
+
+
+def test_search_transcripts_no_match(tmp_db):
+    writer.write_transcript(tmp_db, "/hdd/a.mp3", "2017-10-18", "佛法無邊")
+    results = writer.search_transcripts(tmp_db, "孔子")
+    assert results == []
+
+
+def test_search_transcripts_ordered_by_date(tmp_db):
+    writer.write_transcript(tmp_db, "/hdd/b.mp3", "2017-10-19", "菩薩行")
+    writer.write_transcript(tmp_db, "/hdd/a.mp3", "2017-10-18", "菩薩戒")
+    results = writer.search_transcripts(tmp_db, "菩薩")
+    assert results[0]["date"] == "2017-10-18"
+    assert results[1]["date"] == "2017-10-19"

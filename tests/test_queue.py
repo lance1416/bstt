@@ -92,3 +92,20 @@ def test_failed_jobs_lists_errors(tmp_db, tmp_input):
     failures = queue.failed_jobs(tmp_db)
     assert len(failures) == 1
     assert failures[0]["error"] == "decode error"
+
+
+def test_list_jobs_returns_all(tmp_db, tmp_input):
+    queue.scan_and_enqueue(tmp_input, tmp_db)
+    jobs = queue.list_jobs(tmp_db)
+    assert len(jobs) == 2
+    assert all(j["status"] == "pending" for j in jobs)
+    assert all("file_path" in j for j in jobs)
+
+
+def test_list_jobs_reflects_status_changes(tmp_db, tmp_input):
+    queue.scan_and_enqueue(tmp_input, tmp_db)
+    job = queue.next_pending(tmp_db)
+    queue.mark_done(tmp_db, job["id"])
+    jobs = queue.list_jobs(tmp_db)
+    statuses = {j["file_path"]: j["status"] for j in jobs}
+    assert statuses[job["file_path"]] == "done"
