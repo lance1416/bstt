@@ -54,12 +54,13 @@ def postprocess_segments(
     terms_path: str,
     punc_model=None,
 ) -> str:
-    """Per-segment: fillers → terms → T2S → punctuate; then concatenate.
+    """Clean each segment, concatenate, then punctuate the full text.
 
-    T2S runs before punctuation so FunASR receives the Simplified Chinese
-    it was trained on. Segments are joined without separator when punctuation
-    is enabled (the model supplies sentence boundaries), or with newlines when
-    punctuation is disabled.
+    Punctuation runs on the joined text so the model has full context to
+    find real sentence boundaries rather than treating Whisper's arbitrary
+    time-based segment cuts as semantic breaks.
+
+    Order: per-segment (fillers → terms → T2S) → join → punctuate
     """
     fillers = load_fillers(fillers_path)
     terms = load_terms(terms_path)
@@ -72,9 +73,10 @@ def postprocess_segments(
         if text.strip():
             processed.append(text.strip())
 
-    if punc_model:
-        from stt import punctuate
-        processed = [punctuate.apply(t, punc_model) for t in processed]
-        return "".join(processed)
+    combined = "".join(processed)
 
-    return "\n".join(processed)
+    if punc_model and combined:
+        from stt import punctuate
+        combined = punctuate.apply(combined, punc_model)
+
+    return combined

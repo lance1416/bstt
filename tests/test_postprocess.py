@@ -94,12 +94,13 @@ def test_postprocess_segments_no_punc_model(config_dir):
     assert "般若" in result
     assert "讲" in result      # T2S applied
     assert "講" not in result
-    assert "\n" in result      # segments joined with newline when no punc model
+    assert "\n" not in result  # segments concatenated without separator
 
 
 def test_postprocess_segments_with_punc_model(config_dir):
     class FakePuncModel:
         def generate(self, input):
+            # Receives the full concatenated text, not individual segments
             return [{"text": input + "。"}]
 
     segments = ["浬槃之道", "般惹波羅蜜"]
@@ -112,7 +113,9 @@ def test_postprocess_segments_with_punc_model(config_dir):
     assert "涅槃" in result
     assert "般若" in result
     assert "。" in result
-    assert "\n" not in result  # segments concatenated without newline
+    assert "\n" not in result
+    # both segments appear in one combined string
+    assert "涅槃之道" in result and "般若波罗蜜" in result
 
 
 def test_postprocess_segments_empty_list(config_dir):
