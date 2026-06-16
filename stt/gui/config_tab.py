@@ -182,13 +182,21 @@ class ConfigTab(QWidget):
             self._terms_table.removeRow(row)
 
     def _save(self) -> None:
-        try:
-            self._save_settings()
-            self._save_fillers()
-            self._save_terms()
+        saves = [
+            (self._save_settings, "settings TOML"),
+            (self._save_fillers, "fillers.txt"),
+            (self._save_terms, "buddhist_terms.json"),
+        ]
+        failed = []
+        for fn, label in saves:
+            try:
+                fn()
+            except OSError as e:
+                failed.append(f"{label}: {e}")
+        if failed:
+            QMessageBox.warning(self, "Save Failed", "\n".join(failed))
+        else:
             QMessageBox.information(self, "Saved", "Settings saved successfully.")
-        except OSError as e:
-            QMessageBox.warning(self, "Save Failed", str(e))
 
     def _save_settings(self) -> None:
         existing = Settings.load(self.settings_path)

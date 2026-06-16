@@ -122,6 +122,10 @@ class TranscriptsTab(QWidget):
         if not query:
             return
         self._current_query = query
+        if not Path(self.db_path).exists():
+            self._model.set_results([], query)
+            self._viewer.setPlainText("No database found. Run the pipeline first.")
+            return
         try:
             rows = writer.search_transcripts(self.db_path, query)
         except Exception:
