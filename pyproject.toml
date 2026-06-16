@@ -1,7 +1,7 @@
 [project]
 name = "stt"
 version = "0.1.0"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "faster-whisper",
     "opencc-python-reimplemented",
@@ -19,6 +19,4 @@ dev = [
     "pytest>=9.1.0",
 ]
 
-# Install punctuation support separately once a funasr wheel is available for your Python version:
-#   uv add funasr
-# or pin to a Python version that has pre-built wheels (3.12 / 3.13).
+# Install punctuation support: uv add funasr
