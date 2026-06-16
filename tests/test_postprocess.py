@@ -50,8 +50,16 @@ def test_correct_terms_replaces_wrong(config_dir):
     assert "般惹" not in result
 
 
-def test_postprocess_applies_both_passes(config_dir):
-    text = "嗯浬槃啊之道"
+def test_convert_to_simplified():
+    # 講 (Traditional) → 讲 (Simplified), 菩薩 → 菩萨
+    assert postprocess.convert_to_simplified("講佛法") == "讲佛法"
+    assert postprocess.convert_to_simplified("菩薩") == "菩萨"
+    assert postprocess.convert_to_simplified("") == ""
+
+
+def test_postprocess_applies_all_passes(config_dir):
+    # 嗯/啊 removed, 浬槃→涅槃 corrected, 講→讲 converted to Simplified
+    text = "嗯浬槃啊之講道"
     result = postprocess.postprocess(
         text,
         str(config_dir / "fillers.txt"),
@@ -60,6 +68,8 @@ def test_postprocess_applies_both_passes(config_dir):
     assert "嗯" not in result
     assert "啊" not in result
     assert "涅槃" in result
+    assert "讲" in result   # Traditional 講 → Simplified 讲
+    assert "講" not in result
 
 
 def test_postprocess_empty_string(config_dir):

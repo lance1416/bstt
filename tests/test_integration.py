@@ -27,6 +27,9 @@ def test_full_pipeline(tmp_path):
     text = txt_file.read_text(encoding="utf-8")
     assert len(text) > 100, "Transcript is suspiciously short"
 
+    # output is Simplified Chinese — 講 (Traditional) must not appear; 讲 (Simplified) should
+    assert "講" not in text, "Traditional character 講 found — T2S conversion did not run"
+
     # database row inserted and searchable
     conn = sqlite3.connect(db_path)
     rows = conn.execute("SELECT text, date FROM transcripts").fetchall()
