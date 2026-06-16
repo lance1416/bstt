@@ -1,9 +1,12 @@
 from dataclasses import dataclass
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from faster_whisper import WhisperModel
 
 from stt import log
+
+if TYPE_CHECKING:
+    from stt.config import Settings
 
 
 @dataclass
@@ -13,18 +16,27 @@ class Segment:
     text: str
 
 
-def load_model(device: str = "cuda") -> WhisperModel:
-    log.get().info("Loading Whisper large-v3 on %s", device)
-    compute_type = "float16" if device == "cuda" else "int8"
-    return WhisperModel("large-v3", device=device, compute_type=compute_type)
+def load_model(settings: "Settings") -> WhisperModel:
+    m = settings.model
+    device = m.resolved_device()
+    compute_type = m.resolved_compute_type(device)
+    log.get().info("Loading Whisper %s on %s (%s)", m.size, device, compute_type)
+    return WhisperModel(m.size, device=device, compute_type=compute_type)
 
 
 def transcribe_file(
     model: WhisperModel,
     file_path: str,
+    settings: "Settings",
     on_segment: Callable[[float, float], None] | None = None,
 ) -> list[Segment]:
-    segments_iter, info = model.transcribe(file_path, language="yue", vad_filter=True)
+    m = settings.model
+    segments_iter, info = model.transcribe(
+        file_path,
+        language=m.language,
+        vad_filter=m.vad_filter,
+        beam_size=m.beam_size,
+    )
     result = []
     for s in segments_iter:
         result.append(Segment(start=s.start, end=s.end, text=s.text))

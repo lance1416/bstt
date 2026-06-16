@@ -1,8 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable
 
 from stt import log, postprocess, queue, transcribe, writer
+from stt.config import Settings
 
 
 @dataclass
@@ -26,9 +27,13 @@ def run(
     db_path: str,
     output_dir: str,
     config_dir: str,
+    settings: Settings | None = None,
     on_progress: Callable[[ProgressEvent], None] | None = None,
     on_segment: Callable[[SegmentEvent], None] | None = None,
 ) -> None:
+    if settings is None:
+        settings = Settings()
+
     logger = log.get()
     fillers_path = str(Path(config_dir) / "fillers.txt")
     terms_path = str(Path(config_dir) / "buddhist_terms.json")
@@ -49,7 +54,7 @@ def run(
     pending = counts.get("pending", 0)
     logger.info("Queue: %d total jobs, %d pending, %d new", total, pending, new_jobs)
 
-    model = transcribe.load_model()
+    model = transcribe.load_model(settings)
 
     while True:
         job = queue.next_pending(db_path)
@@ -66,19 +71,20 @@ def run(
 
         job_status = "done"
         try:
-            segments = transcribe.transcribe_file(model, job_path, on_segment=seg_cb)
-            raw_text = transcribe.segments_to_text(segments)
+            segs = transcribe.transcribe_file(model, job_path, settings, on_segment=seg_cb)
+            raw_text = transcribe.segments_to_text(segs)
             clean_text = postprocess.postprocess(raw_text, fillers_path, terms_path)
             date = writer.parse_date(Path(job_path).name)
             writer.write_txt(clean_text, job_path, output_dir)
             writer.write_transcript(db_path, job_path, date, clean_text)
             queue.mark_done(db_path, job["id"])
-            logger.info("Done: %s (%d segments)", Path(job_path).name, len(segments))
+            logger.info("Done: %s (%d segments)", Path(job_path).name, len(segs))
         except Exception as e:
             if transcribe.is_cuda_oom(e):
                 logger.warning("CUDA OOM — switching to CPU for all remaining files")
                 del model
-                model = transcribe.load_model(device="cpu")
+                settings = Settings(model=replace(settings.model, device="cpu", compute_type="int8"))
+                model = transcribe.load_model(settings)
                 queue.reset_stale(db_path)
                 continue
             job_status = "failed"

@@ -6,16 +6,32 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from stt import log, pipeline, queue
+from stt.config import Settings
 
 DEFAULT_DB = "stt.db"
 DEFAULT_OUTPUT = "output"
 DEFAULT_CONFIG = "config"
+DEFAULT_SETTINGS = "config/settings.toml"
 
 
 def _cmd_run(args: argparse.Namespace) -> None:
     log.setup(
         level=getattr(logging, args.log_level.upper(), logging.INFO),
         log_file=args.log_file,
+    )
+
+    settings = Settings.load(args.settings).with_overrides(
+        size=args.model_size,
+        device=args.device,
+        language=args.language,
+        beam_size=args.beam_size,
+    )
+    log.get().info(
+        "Settings — model: %s, device: %s, language: %s, beam_size: %d",
+        settings.model.size,
+        settings.model.device,
+        settings.model.language,
+        settings.model.beam_size,
     )
 
     job_bar = tqdm(
@@ -56,6 +72,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
             db_path=args.db,
             output_dir=args.output,
             config_dir=args.config,
+            settings=settings,
             on_progress=on_progress,
             on_segment=on_segment,
         )
@@ -95,8 +112,19 @@ def main() -> None:
     run_p.add_argument("--input", required=True, help="Directory of MP3 files")
     run_p.add_argument("--output", default=DEFAULT_OUTPUT, help="Output directory for .txt files")
     run_p.add_argument("--config", default=DEFAULT_CONFIG, help="Config directory")
+    run_p.add_argument("--settings", default=DEFAULT_SETTINGS, metavar="PATH",
+                       help=f"Settings TOML file (default: {DEFAULT_SETTINGS})")
+    run_p.add_argument("--model-size", default=None, metavar="SIZE",
+                       help="Override model size (e.g. large-v3, medium)")
+    run_p.add_argument("--device", default=None, choices=["auto", "cuda", "cpu"],
+                       help="Override inference device")
+    run_p.add_argument("--language", default=None, metavar="LANG",
+                       help="Override language code (e.g. yue, zh)")
+    run_p.add_argument("--beam-size", default=None, type=int, metavar="N",
+                       help="Override beam search width")
     run_p.add_argument("--log-file", default=None, metavar="PATH", help="Also write logs to this file")
-    run_p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="Console log level (default: INFO)")
+    run_p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                       help="Console log level (default: INFO)")
     run_p.set_defaults(func=_cmd_run)
 
     status_p = sub.add_parser("status", help="Show job queue status")
