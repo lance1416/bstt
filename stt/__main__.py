@@ -19,6 +19,9 @@ def _cmd_run(args: argparse.Namespace) -> None:
         level=getattr(logging, args.log_level.upper(), logging.INFO),
         log_file=args.log_file,
     )
+    if args.force:
+        n = queue.reset_all(args.db)
+        log.get().info("--force: reset %d job(s) to pending", n)
 
     settings = Settings.load(args.settings).with_overrides(
         size=args.model_size,
@@ -122,6 +125,8 @@ def main() -> None:
                        help="Override language code (e.g. yue, zh)")
     run_p.add_argument("--beam-size", default=None, type=int, metavar="N",
                        help="Override beam search width")
+    run_p.add_argument("--force", action="store_true",
+                       help="Re-process already-done files (resets queue before running)")
     run_p.add_argument("--log-file", default=None, metavar="PATH", help="Also write logs to this file")
     run_p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
                        help="Console log level (default: INFO)")
@@ -132,6 +137,9 @@ def main() -> None:
 
     retry_p = sub.add_parser("retry-failed", help="Reset failed jobs to pending")
     retry_p.set_defaults(func=_cmd_retry)
+
+    reset_p = sub.add_parser("reset-all", help="Reset all jobs to pending (re-process everything)")
+    reset_p.set_defaults(func=lambda a: print(f"Reset {queue.reset_all(a.db)} job(s) to pending."))
 
     args = parser.parse_args()
     args.func(args)

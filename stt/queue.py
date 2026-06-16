@@ -97,6 +97,14 @@ def retry_failed(db_path: str) -> int:
         return cur.rowcount
 
 
+def reset_all(db_path: str) -> int:
+    with _conn(db_path) as conn:
+        cur = conn.execute(
+            "UPDATE jobs SET status='pending', started_at=NULL, completed_at=NULL, error=NULL"
+        )
+        return cur.rowcount
+
+
 def status_counts(db_path: str) -> dict[str, int]:
     with _conn(db_path) as conn:
         rows = conn.execute(

@@ -20,6 +20,9 @@ def setup(level: int = logging.INFO, log_file: str | None = None) -> None:
         fh.setFormatter(fmt)
         logger.addHandler(fh)
 
+    for noisy in ("jieba", "modelscope", "funasr", "torch", "transformers"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
 
 def get() -> logging.Logger:
     return logging.getLogger("stt")
