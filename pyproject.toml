@@ -8,7 +8,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-punctuation = ["funasr"]
+punctuation = ["funasr>=1.3.9", "torch"]
 
 [build-system]
 requires = ["hatchling"]

@@ -65,10 +65,9 @@ def run(
             logger.info("Loading punctuation model: %s", settings.punctuation.model)
             punc_model = punctuate.load_model(settings.punctuation.model)
         except ImportError:
-            logger.warning(
-                "funasr not installed — punctuation disabled. "
-                "Install with: uv add funasr"
-            )
+            logger.warning("funasr not installed — punctuation disabled. Install with: uv add funasr")
+        except Exception as e:
+            logger.warning("Punctuation model failed to load (%s) — disabled. %s", type(e).__name__, e)
 
     while True:
         if stop_event and stop_event.is_set():

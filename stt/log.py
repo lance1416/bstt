@@ -7,6 +7,7 @@ def setup(level: int = logging.INFO, log_file: str | None = None) -> None:
     if logger.handlers:
         return
     logger.setLevel(level)
+    logger.propagate = False
     fmt = logging.Formatter(
         fmt="%(asctime)s [%(levelname)-8s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
