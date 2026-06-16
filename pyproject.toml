@@ -6,6 +6,7 @@ dependencies = [
     "faster-whisper",
     "funasr>=1.3.9",
     "opencc-python-reimplemented",
+    "pyside6>=6.11.1",
     "torch>=2.12.0",
 ]
 
