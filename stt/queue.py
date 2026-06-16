@@ -49,17 +49,27 @@ def reset_stale(db_path: str) -> None:
 
 
 def next_pending(db_path: str) -> dict | None:
-    with _conn(db_path) as conn:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
             "SELECT id, file_path FROM jobs WHERE status='pending' ORDER BY id LIMIT 1"
         ).fetchone()
         if row is None:
+            conn.rollback()
             return None
         conn.execute(
             "UPDATE jobs SET status='in_progress', started_at=datetime('now') WHERE id=?",
             (row["id"],),
         )
+        conn.commit()
         return {"id": row["id"], "file_path": row["file_path"]}
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def mark_done(db_path: str, job_id: int) -> None:
