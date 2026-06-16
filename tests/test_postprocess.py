@@ -79,3 +79,56 @@ def test_postprocess_empty_string(config_dir):
         str(config_dir / "buddhist_terms.json"),
     )
     assert result == ""
+
+
+def test_postprocess_segments_no_punc_model(config_dir):
+    segments = ["嗯浬槃之講道", "般惹波羅蜜啊"]
+    result = postprocess.postprocess_segments(
+        segments,
+        str(config_dir / "fillers.txt"),
+        str(config_dir / "buddhist_terms.json"),
+    )
+    assert "嗯" not in result
+    assert "啊" not in result
+    assert "涅槃" in result
+    assert "般若" in result
+    assert "讲" in result      # T2S applied
+    assert "講" not in result
+    assert "\n" in result      # segments joined with newline when no punc model
+
+
+def test_postprocess_segments_with_punc_model(config_dir):
+    class FakePuncModel:
+        def generate(self, input):
+            return [{"text": input + "。"}]
+
+    segments = ["浬槃之道", "般惹波羅蜜"]
+    result = postprocess.postprocess_segments(
+        segments,
+        str(config_dir / "fillers.txt"),
+        str(config_dir / "buddhist_terms.json"),
+        punc_model=FakePuncModel(),
+    )
+    assert "涅槃" in result
+    assert "般若" in result
+    assert "。" in result
+    assert "\n" not in result  # segments concatenated without newline
+
+
+def test_postprocess_segments_empty_list(config_dir):
+    result = postprocess.postprocess_segments(
+        [],
+        str(config_dir / "fillers.txt"),
+        str(config_dir / "buddhist_terms.json"),
+    )
+    assert result == ""
+
+
+def test_postprocess_segments_filters_blank(config_dir):
+    segments = ["嗯", "", "  "]  # all become blank after filler removal
+    result = postprocess.postprocess_segments(
+        segments,
+        str(config_dir / "fillers.txt"),
+        str(config_dir / "buddhist_terms.json"),
+    )
+    assert result == ""

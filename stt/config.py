@@ -30,8 +30,15 @@ class ModelSettings:
 
 
 @dataclass
+class PunctuationSettings:
+    enabled: bool = True
+    model: str = "ct-punc"
+
+
+@dataclass
 class Settings:
     model: ModelSettings = field(default_factory=ModelSettings)
+    punctuation: PunctuationSettings = field(default_factory=PunctuationSettings)
 
     @classmethod
     def load(cls, path: str | Path) -> Settings:
@@ -40,10 +47,15 @@ class Settings:
             return cls()
         with open(p, "rb") as f:
             data = tomllib.load(f)
-        model_data = data.get("model", {})
-        return cls(model=ModelSettings(**model_data))
+        return cls(
+            model=ModelSettings(**data.get("model", {})),
+            punctuation=PunctuationSettings(**data.get("punctuation", {})),
+        )
 
     def with_overrides(self, **kwargs: object) -> Settings:
         """Return a new Settings with non-None kwargs applied to model fields."""
         overrides = {k: v for k, v in kwargs.items() if v is not None}
-        return Settings(model=replace(self.model, **overrides)) if overrides else self
+        return Settings(
+            model=replace(self.model, **overrides) if overrides else self.model,
+            punctuation=self.punctuation,
+        )

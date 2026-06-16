@@ -58,6 +58,18 @@ def run(
 
     model = transcribe.load_model(settings)
 
+    punc_model = None
+    if settings.punctuation.enabled:
+        try:
+            from stt import punctuate
+            logger.info("Loading punctuation model: %s", settings.punctuation.model)
+            punc_model = punctuate.load_model(settings.punctuation.model)
+        except ImportError:
+            logger.warning(
+                "funasr not installed — punctuation disabled. "
+                "Install with: uv add funasr"
+            )
+
     while True:
         if stop_event and stop_event.is_set():
             logger.info("Pipeline stopped by request")
@@ -77,8 +89,9 @@ def run(
         job_status = "done"
         try:
             segs = transcribe.transcribe_file(model, job_path, settings, on_segment=seg_cb)
-            raw_text = transcribe.segments_to_text(segs)
-            clean_text = postprocess.postprocess(raw_text, fillers_path, terms_path)
+            clean_text = postprocess.postprocess_segments(
+                [s.text for s in segs], fillers_path, terms_path, punc_model=punc_model
+            )
             date = writer.parse_date(Path(job_path).name)
             writer.write_txt(clean_text, job_path, output_dir)
             writer.write_transcript(db_path, job_path, date, clean_text)

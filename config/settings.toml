@@ -20,3 +20,11 @@ vad_filter = true
 
 # Beam search width; higher = more accurate but slower
 beam_size = 5
+
+[punctuation]
+# Add punctuation to each segment and concatenate into continuous text
+# Requires `funasr` package; disable if not installed
+enabled = true
+
+# FunASR punctuation model name
+model = "ct-punc"

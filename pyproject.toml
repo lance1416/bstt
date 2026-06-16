@@ -8,7 +8,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+punctuation = ["funasr"]
 
 [build-system]
 requires = ["hatchling"]
@@ -18,3 +18,7 @@ build-backend = "hatchling.build"
 dev = [
     "pytest>=9.1.0",
 ]
+
+# Install punctuation support separately once a funasr wheel is available for your Python version:
+#   uv add funasr
+# or pin to a Python version that has pre-built wheels (3.12 / 3.13).
