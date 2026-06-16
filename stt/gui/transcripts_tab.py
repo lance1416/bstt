@@ -54,8 +54,10 @@ class SearchResultModel(QAbstractTableModel):
             return _excerpt(row["text"], self._query)
         return None
 
-    def full_text(self, row_index: int) -> tuple[str, str]:
-        """Returns (file_path, text) for the given row."""
+    def full_text(self, row_index: int) -> tuple[str, str] | None:
+        """Returns (file_path, text) for the given row, or None if out of bounds."""
+        if row_index < 0 or row_index >= len(self._rows):
+            return None
         row = self._rows[row_index]
         return row["file_path"], row["text"]
 
@@ -131,7 +133,10 @@ class TranscriptsTab(QWidget):
         indexes = self._table.selectionModel().selectedRows()
         if not indexes:
             return
-        _, text = self._model.full_text(indexes[0].row())
+        result = self._model.full_text(indexes[0].row())
+        if result is None:
+            return
+        _, text = result
         self._viewer.setPlainText(text)
         if self._current_query:
             self._highlight(self._current_query)
@@ -143,6 +148,7 @@ class TranscriptsTab(QWidget):
         while self._viewer.find(query):
             tc = self._viewer.textCursor()
             tc.mergeCharFormat(fmt)
+        self._viewer.moveCursor(QTextCursor.Start)
 
     def load_for_file(self, file_path: str) -> None:
         result = writer.get_transcript(self.db_path, file_path)
