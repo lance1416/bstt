@@ -63,3 +63,17 @@ def write_transcript(db_path: str, file_path: str, date: str, text: str) -> None
         conn.commit()
     finally:
         conn.close()
+
+
+def get_transcript(db_path: str, file_path: str) -> dict | None:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            "SELECT id, file_path, date, text FROM transcripts"
+            " WHERE file_path = ? ORDER BY id DESC LIMIT 1",
+            (file_path,),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
