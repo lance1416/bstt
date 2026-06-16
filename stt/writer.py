@@ -7,10 +7,11 @@ def init_transcript_db(db_path: str) -> None:
     conn = sqlite3.connect(db_path)
     try:
         conn.execute("""
-            CREATE VIRTUAL TABLE IF NOT EXISTS transcripts USING fts5(
-                file_path UNINDEXED,
-                date UNINDEXED,
-                text
+            CREATE TABLE IF NOT EXISTS transcripts (
+                id        INTEGER PRIMARY KEY,
+                file_path TEXT NOT NULL,
+                date      TEXT NOT NULL,
+                text      TEXT NOT NULL
             )
         """)
         conn.commit()

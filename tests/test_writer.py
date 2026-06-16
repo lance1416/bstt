@@ -29,19 +29,19 @@ def test_write_transcript_inserts_row(tmp_db):
     writer.write_transcript(tmp_db, "/hdd/lecture1.mp3", "2017-10-18", "佛法無邊")
     conn = sqlite3.connect(tmp_db)
     rows = conn.execute(
-        "SELECT text FROM transcripts WHERE transcripts MATCH '佛法'"
+        "SELECT text FROM transcripts WHERE text LIKE '%佛法%'"
     ).fetchall()
     conn.close()
     assert len(rows) == 1
     assert "佛法" in rows[0][0]
 
 
-def test_write_transcript_fts_searchable(tmp_db):
+def test_write_transcript_searchable(tmp_db):
     writer.write_transcript(tmp_db, "/hdd/lecture1.mp3", "2017-10-18", "般若波羅蜜多")
     writer.write_transcript(tmp_db, "/hdd/lecture2.mp3", "2017-10-19", "阿彌陀佛")
     conn = sqlite3.connect(tmp_db)
     rows = conn.execute(
-        "SELECT file_path FROM transcripts WHERE transcripts MATCH '般若'"
+        "SELECT file_path FROM transcripts WHERE text LIKE '%般若%'"
     ).fetchall()
     conn.close()
     assert len(rows) == 1
