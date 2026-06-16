@@ -1,0 +1,61 @@
+# Default: normalize line endings to LF in the repo, checkout as-is on all platforms
+* text=auto eol=lf
+
+# Python source files
+*.py text eol=lf
+*.pyi text eol=lf
+
+# Config / data files
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+*.txt text eol=lf
+*.md text eol=lf
+*.rst text eol=lf
+*.lock text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.python-version text eol=lf
+
+# Shell scripts — LF always
+*.sh text eol=lf
+*.bash text eol=lf
+*.fish text eol=lf
+
+# Windows scripts — CRLF on checkout (native behavior)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files — no line-ending conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.whl binary
+*.pyc binary
+
+# Audio / video (relevant for this STT project)
+*.mp3 binary
+*.mp4 binary
+*.wav binary
+*.flac binary
+*.ogg binary
+*.m4a binary
+*.webm binary
+
+# ML model artifacts
+*.pt binary
+*.pth binary
+*.onnx binary
+*.bin binary
+*.safetensors binary
+*.gguf binary
