@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sys
 from pathlib import Path
 
 from tqdm import tqdm
@@ -107,6 +108,11 @@ def _cmd_retry(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    if len(sys.argv) == 1:
+        from stt.gui.app import launch
+        launch()
+        return
+
     parser = argparse.ArgumentParser(prog="stt", description="Cantonese Buddhist STT pipeline")
     parser.add_argument("--db", default=DEFAULT_DB, help="Path to SQLite database")
     sub = parser.add_subparsers(dest="command", required=True)
