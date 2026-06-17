@@ -64,15 +64,10 @@ class RunTab(QWidget):
 
         # Progress bars — start in static idle state (setMaximum(0) would animate)
         self._queue_bar = QProgressBar()
-        self._queue_bar.setRange(0, 1)
-        self._queue_bar.setValue(0)
-        self._queue_bar.setFormat("等待中…")
         self._queue_bar.setTextVisible(True)
         self._file_bar = QProgressBar()
-        self._file_bar.setRange(0, 1)
-        self._file_bar.setValue(0)
-        self._file_bar.setFormat("等待中…")
         self._file_bar.setTextVisible(True)
+        self._reset_progress_bars()
 
         # Log
         self._log = QPlainTextEdit()
@@ -124,6 +119,12 @@ class RunTab(QWidget):
         self._worker.start()
         self.pipeline_started.emit()
 
+    def _reset_progress_bars(self) -> None:
+        for bar in (self._queue_bar, self._file_bar):
+            bar.setRange(0, 1)
+            bar.setValue(0)
+            bar.setFormat("等待中…")
+
     def _stop(self) -> None:
         if self._worker:
             self._worker.stop()
@@ -153,13 +154,7 @@ class RunTab(QWidget):
         self._start_btn.setEnabled(True)
         self._stop_btn.setEnabled(False)
         self._worker = None
-        # Return progress bars to static idle state
-        self._queue_bar.setRange(0, 1)
-        self._queue_bar.setValue(0)
-        self._queue_bar.setFormat("等待中…")
-        self._file_bar.setRange(0, 1)
-        self._file_bar.setValue(0)
-        self._file_bar.setFormat("等待中…")
+        self._reset_progress_bars()
         self.pipeline_finished.emit()
 
     def _on_error(self, msg: str) -> None:

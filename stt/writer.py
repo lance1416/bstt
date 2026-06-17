@@ -1,11 +1,11 @@
 import re
-import sqlite3
 from pathlib import Path
+
+from stt.queue import conn_ctx
 
 
 def init_transcript_db(db_path: str) -> None:
-    conn = sqlite3.connect(db_path)
-    try:
+    with conn_ctx(db_path) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS transcripts (
@@ -15,9 +15,6 @@ def init_transcript_db(db_path: str) -> None:
                 text      TEXT NOT NULL
             )
         """)
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def parse_date(filename: str) -> str:
@@ -41,39 +38,27 @@ def write_txt(text: str, source_path: str, output_dir: str) -> str:
 
 
 def search_transcripts(db_path: str, query: str) -> list[dict]:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    try:
+    with conn_ctx(db_path) as conn:
         rows = conn.execute(
             "SELECT id, file_path, date, text FROM transcripts WHERE text LIKE ? ORDER BY date",
             (f"%{query}%",),
         ).fetchall()
         return [dict(row) for row in rows]
-    finally:
-        conn.close()
 
 
 def write_transcript(db_path: str, file_path: str, date: str, text: str) -> None:
-    conn = sqlite3.connect(db_path)
-    try:
+    with conn_ctx(db_path) as conn:
         conn.execute(
             "INSERT INTO transcripts (file_path, date, text) VALUES (?, ?, ?)",
             (file_path, date, text),
         )
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def get_transcript(db_path: str, file_path: str) -> dict | None:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    try:
+    with conn_ctx(db_path) as conn:
         row = conn.execute(
             "SELECT id, file_path, date, text FROM transcripts"
             " WHERE file_path = ? ORDER BY id DESC LIMIT 1",
             (file_path,),
         ).fetchone()
         return dict(row) if row else None
-    finally:
-        conn.close()

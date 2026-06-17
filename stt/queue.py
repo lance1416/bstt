@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 @contextmanager
-def _conn(db_path: str):
+def conn_ctx(db_path: str):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
@@ -15,7 +15,7 @@ def _conn(db_path: str):
 
 
 def init_db(db_path: str) -> None:
-    with _conn(db_path) as conn:
+    with conn_ctx(db_path) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS jobs (
@@ -31,7 +31,7 @@ def init_db(db_path: str) -> None:
 
 def scan_and_enqueue(input_dir: str, db_path: str) -> int:
     paths = sorted(Path(input_dir).rglob("*.mp3"))
-    with _conn(db_path) as conn:
+    with conn_ctx(db_path) as conn:
         new_count = 0
         for path in paths:
             cur = conn.execute(
@@ -43,7 +43,7 @@ def scan_and_enqueue(input_dir: str, db_path: str) -> int:
 
 
 def reset_stale(db_path: str) -> None:
-    with _conn(db_path) as conn:
+    with conn_ctx(db_path) as conn:
         conn.execute(
             "UPDATE jobs SET status='pending', started_at=NULL WHERE status='in_progress'"
         )
@@ -74,7 +74,7 @@ def next_pending(db_path: str) -> dict | None:
 
 
 def mark_done(db_path: str, job_id: int) -> None:
-    with _conn(db_path) as conn:
+    with conn_ctx(db_path) as conn:
         conn.execute(
             "UPDATE jobs SET status='done', completed_at=datetime('now') WHERE id=?",
             (job_id,),
@@ -82,7 +82,7 @@ def mark_done(db_path: str, job_id: int) -> None:
 
 
 def mark_failed(db_path: str, job_id: int, error: str) -> None:
-    with _conn(db_path) as conn:
+    with conn_ctx(db_path) as conn:
         conn.execute(
             "UPDATE jobs SET status='failed', completed_at=datetime('now'), error=? WHERE id=?",
             (error, job_id),
@@ -90,7 +90,7 @@ def mark_failed(db_path: str, job_id: int, error: str) -> None:
 
 
 def retry_failed(db_path: str) -> int:
-    with _conn(db_path) as conn:
+    with conn_ctx(db_path) as conn:
         cur = conn.execute(
             "UPDATE jobs SET status='pending', error=NULL WHERE status='failed'"
         )
@@ -98,7 +98,7 @@ def retry_failed(db_path: str) -> int:
 
 
 def reset_all(db_path: str) -> int:
-    with _conn(db_path) as conn:
+    with conn_ctx(db_path) as conn:
         cur = conn.execute(
             "UPDATE jobs SET status='pending', started_at=NULL, completed_at=NULL, error=NULL"
         )
@@ -106,7 +106,7 @@ def reset_all(db_path: str) -> int:
 
 
 def status_counts(db_path: str) -> dict[str, int]:
-    with _conn(db_path) as conn:
+    with conn_ctx(db_path) as conn:
         rows = conn.execute(
             "SELECT status, COUNT(*) as count FROM jobs GROUP BY status"
         ).fetchall()
@@ -114,7 +114,7 @@ def status_counts(db_path: str) -> dict[str, int]:
 
 
 def failed_jobs(db_path: str) -> list[dict]:
-    with _conn(db_path) as conn:
+    with conn_ctx(db_path) as conn:
         rows = conn.execute(
             "SELECT file_path, error FROM jobs WHERE status='failed'"
         ).fetchall()
@@ -122,7 +122,7 @@ def failed_jobs(db_path: str) -> list[dict]:
 
 
 def list_jobs(db_path: str) -> list[dict]:
-    with _conn(db_path) as conn:
+    with conn_ctx(db_path) as conn:
         rows = conn.execute(
             "SELECT id, file_path, status, started_at, completed_at, error FROM jobs ORDER BY id"
         ).fetchall()
