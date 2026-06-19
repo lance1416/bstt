@@ -130,8 +130,8 @@ def main() -> None:
                        help=f"Settings TOML file (default: {DEFAULT_SETTINGS})")
     run_p.add_argument("--model-size", default=None, metavar="SIZE",
                        help="Override model size (e.g. large-v3, medium)")
-    run_p.add_argument("--device", default=None, choices=["auto", "cuda", "cpu"],
-                       help="Override inference device")
+    run_p.add_argument("--device", default=None, choices=["auto", "cuda", "cpu", "mps"],
+                       help="Override inference device (mps = Apple Silicon via MLX)")
     run_p.add_argument("--language", default=None, metavar="LANG",
                        help="Override language code (e.g. yue, zh)")
     run_p.add_argument("--beam-size", default=None, type=int, metavar="N",

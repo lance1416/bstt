@@ -17,6 +17,11 @@ class ModelSettings:
     def resolved_device(self) -> str:
         if self.device != "auto":
             return self.device
+        import sys
+        if sys.platform == "darwin":
+            # CTranslate2 has no Metal backend; Apple Silicon runs whisper via
+            # MLX on the GPU instead. CPU is still reachable by setting cpu.
+            return "mps"
         try:
             import ctranslate2
             return "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"

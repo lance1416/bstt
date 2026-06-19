@@ -65,7 +65,7 @@ class ConfigTab(QWidget):
         form.addRow("模型大小：", self._size_combo)
 
         self._device_combo = QComboBox()
-        self._device_combo.addItems(["auto", "cuda", "cpu"])
+        self._device_combo.addItems(["auto", "cuda", "cpu", "mps"])
         self._device_combo.setCurrentText(settings.model.device)
         form.addRow("运算设备：", self._device_combo)
 
