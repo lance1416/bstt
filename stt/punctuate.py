@@ -69,7 +69,7 @@ def _install_torchaudio_stub() -> bool:
 
 def load_model(model_name: str = "ct-punc"):
     stubbed = _install_torchaudio_stub()
-    import torch  # must be fully initialised before funasr walks its submodules
+    import torch  # noqa: F401  must be fully initialised before funasr walks its submodules
     try:
         from funasr import AutoModel
         return AutoModel(model=model_name, disable_update=True)

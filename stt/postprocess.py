@@ -39,15 +39,6 @@ def convert_to_simplified(text: str) -> str:
     return _get_converter().convert(text)
 
 
-def postprocess(text: str, fillers_path: str, terms_path: str) -> str:
-    fillers = load_fillers(fillers_path)
-    terms = load_terms(terms_path)
-    text = remove_fillers(text, fillers)
-    text = correct_terms(text, terms)
-    text = convert_to_simplified(text)
-    return text
-
-
 def postprocess_segments(
     segment_texts: list[str],
     fillers_path: str,

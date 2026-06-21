@@ -57,30 +57,6 @@ def test_convert_to_simplified():
     assert postprocess.convert_to_simplified("") == ""
 
 
-def test_postprocess_applies_all_passes(config_dir):
-    # 嗯/啊 removed, 浬槃→涅槃 corrected, 講→讲 converted to Simplified
-    text = "嗯浬槃啊之講道"
-    result = postprocess.postprocess(
-        text,
-        str(config_dir / "fillers.txt"),
-        str(config_dir / "buddhist_terms.json"),
-    )
-    assert "嗯" not in result
-    assert "啊" not in result
-    assert "涅槃" in result
-    assert "讲" in result   # Traditional 講 → Simplified 讲
-    assert "講" not in result
-
-
-def test_postprocess_empty_string(config_dir):
-    result = postprocess.postprocess(
-        "",
-        str(config_dir / "fillers.txt"),
-        str(config_dir / "buddhist_terms.json"),
-    )
-    assert result == ""
-
-
 def test_postprocess_segments_no_punc_model(config_dir):
     segments = ["嗯浬槃之講道", "般惹波羅蜜啊"]
     result = postprocess.postprocess_segments(
