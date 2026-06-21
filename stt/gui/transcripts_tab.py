@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
 from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -74,11 +74,14 @@ def _excerpt(text: str, query: str, window: int = 80) -> str:
 
 
 class TranscriptsTab(QWidget):
+    reprocess_file_requested = Signal(str)
+
     def __init__(self, db_path: str) -> None:
         super().__init__()
         self.db_path = db_path
         self._model = SearchResultModel()
         self._current_query = ""
+        self._current_file_path = ""
 
         # Search row
         self._search_edit = QLineEdit()
@@ -101,6 +104,8 @@ class TranscriptsTab(QWidget):
         # Transcript viewer
         self._viewer = QPlainTextEdit()
         self._viewer.setReadOnly(True)
+        self._reprocess_btn = QPushButton("重新处理此文件")
+        self._reprocess_btn.clicked.connect(self._on_reprocess_clicked)
 
         # Layout: search + table on top, viewer on bottom
         results_widget = QWidget()
@@ -109,9 +114,15 @@ class TranscriptsTab(QWidget):
         results_layout.addLayout(search_row)
         results_layout.addWidget(self._table)
 
+        viewer_widget = QWidget()
+        viewer_layout = QVBoxLayout(viewer_widget)
+        viewer_layout.setContentsMargins(0, 0, 0, 0)
+        viewer_layout.addWidget(self._viewer)
+        viewer_layout.addWidget(self._reprocess_btn)
+
         splitter = QSplitter(Qt.Vertical)
         splitter.addWidget(results_widget)
-        splitter.addWidget(self._viewer)
+        splitter.addWidget(viewer_widget)
         splitter.setSizes([300, 300])
 
         layout = QVBoxLayout(self)
@@ -140,7 +151,8 @@ class TranscriptsTab(QWidget):
         result = self._model.full_text(indexes[0].row())
         if result is None:
             return
-        _, text = result
+        file_path, text = result
+        self._current_file_path = file_path
         self._viewer.setPlainText(text)
         if self._current_query:
             self._highlight(self._current_query)
@@ -155,6 +167,7 @@ class TranscriptsTab(QWidget):
         self._viewer.moveCursor(QTextCursor.Start)
 
     def load_for_file(self, file_path: str) -> None:
+        self._current_file_path = file_path
         result = writer.get_transcript(self.db_path, file_path)
         self._search_edit.clear()
         self._model.set_results([], "")
@@ -163,3 +176,7 @@ class TranscriptsTab(QWidget):
             self._viewer.setPlainText(result["text"])
         else:
             self._viewer.setPlainText("（未找到转录）")
+
+    def _on_reprocess_clicked(self) -> None:
+        if self._current_file_path:
+            self.reprocess_file_requested.emit(self._current_file_path)

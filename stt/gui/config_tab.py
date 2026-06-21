@@ -2,6 +2,7 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -46,6 +47,8 @@ def _to_toml(settings: Settings) -> str:
 
 
 class ConfigTab(QWidget):
+    reprocess_all_requested = Signal()
+
     def __init__(self, config_dir: str, settings_path: str) -> None:
         super().__init__()
         self.config_dir = config_dir
@@ -126,6 +129,9 @@ class ConfigTab(QWidget):
         save_btn = QPushButton("保存设置")
         save_btn.clicked.connect(self._save)
 
+        reprocess_btn = QPushButton("重新处理全部转录")
+        reprocess_btn.clicked.connect(self._on_reprocess_clicked)
+
         # Scroll area for all content
         content = QWidget()
         content_layout = QVBoxLayout(content)
@@ -133,6 +139,7 @@ class ConfigTab(QWidget):
         content_layout.addWidget(fillers_group)
         content_layout.addWidget(terms_group)
         content_layout.addWidget(save_btn)
+        content_layout.addWidget(reprocess_btn)
         content_layout.addStretch()
 
         scroll = QScrollArea()
@@ -237,3 +244,10 @@ class ConfigTab(QWidget):
         Path(self._terms_path).write_text(
             json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
         )
+
+    def _on_reprocess_clicked(self) -> None:
+        reply = QMessageBox.question(
+            self, "重新处理", "将对所有已转录文件重新运行后处理。是否继续？"
+        )
+        if reply == QMessageBox.Yes:
+            self.reprocess_all_requested.emit()
