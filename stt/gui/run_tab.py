@@ -113,9 +113,12 @@ class RunTab(QWidget):
         self._start_btn.setEnabled(False)
         self._stop_btn.setEnabled(True)
         self._log.clear()
-        # Indeterminate spinner while queue size is not yet known
-        self._queue_bar.setRange(0, 0)
-        self._file_bar.setRange(0, 0)
+        # Start determinate (no busy spinner): pipeline.run emits the queue total
+        # immediately, and per-file/segment events drive the bars from there.
+        for bar in (self._queue_bar, self._file_bar):
+            bar.setRange(0, 1)
+            bar.setValue(0)
+            bar.setFormat("准备中…")
         self._worker.start()
         self.pipeline_started.emit()
 
@@ -131,11 +134,18 @@ class RunTab(QWidget):
         self._stop_btn.setEnabled(False)
 
     def _on_progress(self, e: ProgressEvent) -> None:
-        self._queue_bar.setMaximum(e.total)
+        # max(1, ...) keeps the bar determinate; setMaximum(0) would animate.
+        self._queue_bar.setMaximum(max(1, e.total))
         self._queue_bar.setValue(e.done + e.failed)
         self._queue_bar.setFormat(
             f"队列：{e.done} 已完成，{e.failed} 失败 / {e.total} 总计"
         )
+        # A file just finished (or the run is starting): the next file hasn't
+        # streamed segments yet, so reset the file bar to a determinate idle
+        # state rather than leaving the previous file's bar full.
+        self._file_bar.setRange(0, 1)
+        self._file_bar.setValue(0)
+        self._file_bar.setFormat("准备中…")
 
     def _on_segment(self, e: SegmentEvent) -> None:
         total = max(1, int(e.total_seconds))

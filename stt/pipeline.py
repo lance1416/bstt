@@ -71,6 +71,18 @@ def run(
     pending = counts.get("pending", 0)
     logger.info("Queue: %d total jobs, %d pending, %d new", total, pending, new_jobs)
 
+    # Emit the queue total up front (before the slow model load) so progress
+    # consumers can show a determinate bar instead of a busy spinner while the
+    # first file is still being transcribed.
+    if on_progress:
+        on_progress(ProgressEvent(
+            file_path="",
+            status="",
+            total=total,
+            done=counts.get("done", 0),
+            failed=counts.get("failed", 0),
+        ))
+
     model = transcribe.load_model(settings)
 
     punc_model = _load_punc_model(settings)
