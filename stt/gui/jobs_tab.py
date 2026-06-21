@@ -34,6 +34,7 @@ _STATUS_DISPLAY = {
 class JobTableModel(QAbstractTableModel):
     _COLUMNS = ("文件名", "状态", "完成时间", "错误信息")
     _BRUSHES: dict[str, QBrush] = {}
+    _TEXT_BRUSH: QBrush | None = None
 
     @classmethod
     def _brushes(cls) -> dict[str, QBrush]:
@@ -45,6 +46,15 @@ class JobTableModel(QAbstractTableModel):
                 "in_progress": QBrush(QColor("#bbdefb")),
             }
         return cls._BRUSHES
+
+    @classmethod
+    def _text_brush(cls) -> QBrush:
+        # We force a light status background on every row, so the text color must
+        # be pinned dark too. Otherwise a dark-mode theme keeps its white text and
+        # renders white-on-light (unreadable).
+        if cls._TEXT_BRUSH is None:
+            cls._TEXT_BRUSH = QBrush(QColor("#212121"))
+        return cls._TEXT_BRUSH
 
     def __init__(self, db_path: str, parent=None) -> None:
         super().__init__(parent)
@@ -89,6 +99,8 @@ class JobTableModel(QAbstractTableModel):
                 return row.get("error") or ""
         if role == Qt.BackgroundRole:
             return self._brushes().get(row["status"])
+        if role == Qt.ForegroundRole and row["status"] in self._brushes():
+            return self._text_brush()
         return None
 
     def row_data(self, row_index: int) -> dict | None:
