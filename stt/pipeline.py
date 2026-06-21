@@ -92,8 +92,9 @@ def run(
                 [s.text for s in segs], fillers_path, terms_path, punc_model=punc_model
             )
             date = writer.parse_date(Path(job_path).name)
+            raw_json = transcribe.segments_to_json(segs)
             writer.write_txt(clean_text, job_path, output_dir)
-            writer.write_transcript(db_path, job_path, date, clean_text)
+            writer.write_transcript(db_path, job_path, date, raw_json, clean_text)
             queue.mark_done(db_path, job["id"])
             logger.info("Done: %s (%d segments)", Path(job_path).name, len(segs))
         except Exception as e:
