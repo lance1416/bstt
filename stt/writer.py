@@ -19,11 +19,11 @@ def init_transcript_db(db_path: str) -> None:
         cols = {row["name"] for row in conn.execute("PRAGMA table_info(transcripts)")}
         if "raw_segments" not in cols:
             conn.execute("ALTER TABLE transcripts ADD COLUMN raw_segments TEXT")
-        # Dedupe legacy rows (one row per file): keep the newest id per file_path.
-        conn.execute("""
-            DELETE FROM transcripts
-            WHERE id NOT IN (SELECT MAX(id) FROM transcripts GROUP BY file_path)
-        """)
+            # Dedupe legacy rows (one row per file): keep the newest id per file_path.
+            conn.execute("""
+                DELETE FROM transcripts
+                WHERE id NOT IN (SELECT MAX(id) FROM transcripts GROUP BY file_path)
+            """)
         conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_transcripts_file_path"
             " ON transcripts(file_path)"
@@ -53,7 +53,7 @@ def write_txt(text: str, source_path: str, output_dir: str) -> str:
 def search_transcripts(db_path: str, query: str) -> list[dict]:
     with conn_ctx(db_path) as conn:
         rows = conn.execute(
-            "SELECT id, file_path, date, text FROM transcripts WHERE text LIKE ? ORDER BY date",
+            "SELECT file_path, date, text FROM transcripts WHERE text LIKE ? ORDER BY date",
             (f"%{query}%",),
         ).fetchall()
         return [dict(row) for row in rows]
