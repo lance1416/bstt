@@ -31,8 +31,10 @@ uv run python -m stt run --input <dir> --device cpu --model-size medium --force
 
 `run` flags override `config/settings.toml` at runtime: `--model-size`, `--device`
 (`auto|cuda|cpu|mps`), `--language`, `--beam-size`, `--force` (reset queue first),
-`--log-file`, `--log-level`. The integration test is skipped unless a sample MP3 exists
-at `tests/../data/2017-1018-zhz.mp3`.
+`--log-file`, `--log-level`. The end-to-end integration test runs a committed ~11s clip
+(`tests/fixtures/2020-0101-jfk.mp3`) through the pipeline with the `tiny` model and
+punctuation off; it needs `ffmpeg` on PATH (the Whisper backends shell out to it to decode
+audio) and downloads the tiny model on first run.
 
 ## Architecture
 
