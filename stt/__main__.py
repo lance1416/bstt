@@ -112,6 +112,31 @@ def _cmd_retry(args: argparse.Namespace) -> None:
     print(f"Reset {n} failed job(s) to pending.")
 
 
+def _cmd_reprocess(args: argparse.Namespace) -> None:
+    log.setup(
+        level=getattr(logging, args.log_level.upper(), logging.INFO),
+        log_file=args.log_file,
+    )
+    settings = Settings.load(args.settings)
+    bar = tqdm(total=None, desc="Reprocess", unit="file", dynamic_ncols=True)
+
+    def on_progress(event: pipeline.ProgressEvent) -> None:
+        bar.total = event.total
+        bar.n = event.done
+        bar.refresh()
+
+    with logging_redirect_tqdm(loggers=[log.get()]):
+        pipeline.reprocess(
+            db_path=args.db,
+            output_dir=args.output,
+            config_dir=args.config,
+            settings=settings,
+            file_path=args.file,
+            on_progress=on_progress,
+        )
+    bar.close()
+
+
 def main() -> None:
     if len(sys.argv) == 1:
         from stt.gui.app import launch
@@ -148,6 +173,21 @@ def main() -> None:
 
     retry_p = sub.add_parser("retry-failed", help="Reset failed jobs to pending")
     retry_p.set_defaults(func=_cmd_retry)
+
+    reprocess_p = sub.add_parser(
+        "reprocess",
+        help="Re-run post-processing on stored transcriptions (no re-transcribe)",
+    )
+    reprocess_p.add_argument("--file", default=None, metavar="PATH",
+                             help="Reprocess only this stored file path (default: all)")
+    reprocess_p.add_argument("--output", default=DEFAULT_OUTPUT, help="Output directory for .txt files")
+    reprocess_p.add_argument("--config", default=DEFAULT_CONFIG, help="Config directory")
+    reprocess_p.add_argument("--settings", default=DEFAULT_SETTINGS, metavar="PATH",
+                             help=f"Settings TOML file (default: {DEFAULT_SETTINGS})")
+    reprocess_p.add_argument("--log-file", default=None, metavar="PATH", help="Also write logs to this file")
+    reprocess_p.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                             help="Console log level (default: INFO)")
+    reprocess_p.set_defaults(func=_cmd_reprocess)
 
     reset_p = sub.add_parser("reset-all", help="Reset all jobs to pending (re-process everything)")
     reset_p.set_defaults(func=lambda a: print(f"Reset {queue.reset_all(a.db)} job(s) to pending."))
