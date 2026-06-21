@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QInputDialog,
-    QLineEdit,
     QListWidget,
     QMessageBox,
     QPushButton,
@@ -72,8 +71,12 @@ class ConfigTab(QWidget):
         self._device_combo.setCurrentText(settings.model.device)
         form.addRow("运算设备：", self._device_combo)
 
-        self._language_edit = QLineEdit(settings.model.language)
-        form.addRow("语言：", self._language_edit)
+        self._language_combo = QComboBox()
+        for label, code in (("粤语 (yue)", "yue"), ("普通话 (zh)", "zh")):
+            self._language_combo.addItem(label, code)
+        lang_idx = self._language_combo.findData(settings.model.language)
+        self._language_combo.setCurrentIndex(lang_idx if lang_idx >= 0 else 0)
+        form.addRow("语言：", self._language_combo)
 
         self._beam_spin = QSpinBox()
         self._beam_spin.setRange(1, 10)
@@ -84,10 +87,13 @@ class ConfigTab(QWidget):
         self._punc_check.setChecked(settings.punctuation.enabled)
         form.addRow("标点：", self._punc_check)
 
-        self._punc_model_edit = QLineEdit(settings.punctuation.model)
-        self._punc_model_edit.setVisible(settings.punctuation.enabled)
-        self._punc_check.toggled.connect(self._punc_model_edit.setVisible)
-        form.addRow("标点模型：", self._punc_model_edit)
+        self._punc_model_combo = QComboBox()
+        self._punc_model_combo.setEditable(True)
+        self._punc_model_combo.addItems(["ct-punc", "ct-punc-c"])
+        self._punc_model_combo.setCurrentText(settings.punctuation.model)
+        self._punc_model_combo.setVisible(settings.punctuation.enabled)
+        self._punc_check.toggled.connect(self._punc_model_combo.setVisible)
+        form.addRow("标点模型：", self._punc_model_combo)
 
         # --- Fillers group ---
         fillers_group = QGroupBox("语气词")
@@ -213,13 +219,13 @@ class ConfigTab(QWidget):
             existing.model,
             size=self._size_combo.currentText(),
             device=self._device_combo.currentText(),
-            language=self._language_edit.text().strip() or "yue",
+            language=self._language_combo.currentData() or "yue",
             beam_size=self._beam_spin.value(),
         )
         new_punc = replace(
             existing.punctuation,
             enabled=self._punc_check.isChecked(),
-            model=self._punc_model_edit.text().strip() or "ct-punc",
+            model=self._punc_model_combo.currentText().strip() or "ct-punc",
         )
         Path(self.settings_path).write_text(
             _to_toml(Settings(model=new_model, punctuation=new_punc)), encoding="utf-8"
