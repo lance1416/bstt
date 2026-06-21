@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Protocol, cast
 
@@ -14,6 +15,21 @@ class Segment:
     start: float
     end: float
     text: str
+
+
+def segments_to_json(segs: list[Segment]) -> str:
+    return json.dumps(
+        [{"start": s.start, "end": s.end, "text": s.text} for s in segs],
+        ensure_ascii=False,
+    )
+
+
+def segments_from_json(s: str) -> list[Segment]:
+    data = json.loads(s) if s else []
+    return [
+        Segment(start=float(d["start"]), end=float(d["end"]), text=str(d["text"]))
+        for d in data
+    ]
 
 
 SegmentCallback = Callable[[float, float], None]
