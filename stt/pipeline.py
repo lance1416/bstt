@@ -23,6 +23,21 @@ class SegmentEvent:
     total_seconds: float
 
 
+def _load_punc_model(settings: Settings):
+    if not settings.punctuation.enabled:
+        return None
+    logger = log.get()
+    try:
+        from stt import punctuate
+        logger.info("Loading punctuation model: %s", settings.punctuation.model)
+        return punctuate.load_model(settings.punctuation.model)
+    except ImportError:
+        logger.warning("funasr not installed — punctuation disabled. Install with: uv add funasr")
+    except Exception as e:
+        logger.warning("Punctuation model failed to load (%s) — disabled. %s", type(e).__name__, e)
+    return None
+
+
 def run(
     input_dir: str,
     db_path: str,
@@ -58,16 +73,7 @@ def run(
 
     model = transcribe.load_model(settings)
 
-    punc_model = None
-    if settings.punctuation.enabled:
-        try:
-            from stt import punctuate
-            logger.info("Loading punctuation model: %s", settings.punctuation.model)
-            punc_model = punctuate.load_model(settings.punctuation.model)
-        except ImportError:
-            logger.warning("funasr not installed — punctuation disabled. Install with: uv add funasr")
-        except Exception as e:
-            logger.warning("Punctuation model failed to load (%s) — disabled. %s", type(e).__name__, e)
+    punc_model = _load_punc_model(settings)
 
     while True:
         if stop_event and stop_event.is_set():
