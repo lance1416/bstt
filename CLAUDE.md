@@ -81,7 +81,9 @@ gracefully (warns, disables punctuation) — keep it optional.
 
 **Writer (`stt/writer.py`)** — writes the `.txt` and inserts into the `transcripts` SQLite table
 (separate from `jobs`, same DB). `parse_date` extracts dates from filenames in `YYYY-MMDD` (e.g.
-`2017-1018`) or `YYYY-MM-DD` form. `search_transcripts` powers GUI full-text-ish search via `LIKE`.
+`2017-1018`) or `YYYY-MM-DD` form. `search_transcripts(db, query, input_dir=None)` powers GUI
+full-text-ish search via `LIKE`, scoped to the active dir by the same path-prefix `_scope` helper
+(the GUI passes the Run tab's selected folder).
 
 **GUI (`stt/gui/`)** — PySide6, four tabs wired in `main_window.py` (Run / Jobs / Transcripts /
 Config — UI labels are in Chinese). The workers (`worker.py`) run the pipeline in a **child

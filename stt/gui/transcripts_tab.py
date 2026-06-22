@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, QSettings, Qt, Signal
 from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -138,11 +138,17 @@ class TranscriptsTab(QWidget):
             self._viewer.setPlainText("未找到数据库，请先运行处理流程。")
             return
         try:
-            rows = writer.search_transcripts(self.db_path, query)
+            rows = writer.search_transcripts(self.db_path, query, self._active_dir())
         except Exception:
             rows = []
         self._model.set_results(rows, query)
         self._viewer.clear()
+
+    def _active_dir(self) -> str | None:
+        # Scope search to the folder selected on the Run tab (persisted there);
+        # fall back to all transcripts when no folder has been chosen.
+        val = QSettings("stt", "STTPipeline").value("last_input_folder", "")
+        return str(val) if val else None
 
     def _on_select(self) -> None:
         indexes = self._table.selectionModel().selectedRows()

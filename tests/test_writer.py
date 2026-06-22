@@ -82,6 +82,17 @@ def test_search_transcripts_ordered_by_date(tmp_db):
     assert results[1]["date"] == "2017-10-19"
 
 
+def test_search_transcripts_scoped_to_dir(tmp_db):
+    writer.write_transcript(tmp_db, "/hdd/A/a.mp3", "2017-10-18", "[]", "般若波羅蜜")
+    writer.write_transcript(tmp_db, "/hdd/B/b.mp3", "2017-10-19", "[]", "般若心經")
+    # global finds both
+    assert len(writer.search_transcripts(tmp_db, "般若")) == 2
+    # scoped to A finds only A's transcript
+    res = writer.search_transcripts(tmp_db, "般若", input_dir="/hdd/A")
+    assert len(res) == 1
+    assert "A/a.mp3" in res[0]["file_path"]
+
+
 def test_write_transcript_upserts_one_row(tmp_db):
     writer.write_transcript(tmp_db, "/hdd/a.mp3", "2017-10-18", "[]", "first")
     writer.write_transcript(tmp_db, "/hdd/a.mp3", "2017-10-18", "[]", "second")

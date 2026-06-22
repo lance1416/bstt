@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from stt.queue import conn_ctx
+from stt.queue import _scope, conn_ctx
 
 
 def init_transcript_db(db_path: str) -> None:
@@ -50,11 +50,16 @@ def write_txt(text: str, source_path: str, output_dir: str) -> str:
     return str(out)
 
 
-def search_transcripts(db_path: str, query: str) -> list[dict]:
+def search_transcripts(db_path: str, query: str, input_dir: str | None = None) -> list[dict]:
+    # Scope to the active dir by path prefix, same as the job queue (transcripts
+    # store the source file_path). input_dir=None searches all transcripts.
+    clause, params = _scope(input_dir)
     with conn_ctx(db_path) as conn:
         rows = conn.execute(
-            "SELECT file_path, date, text FROM transcripts WHERE text LIKE ? ORDER BY date",
-            (f"%{query}%",),
+            "SELECT file_path, date, text FROM transcripts WHERE text LIKE ?"
+            + clause
+            + " ORDER BY date",
+            [f"%{query}%", *params],
         ).fetchall()
         return [dict(row) for row in rows]
 
