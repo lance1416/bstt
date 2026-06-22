@@ -1,4 +1,5 @@
 import json
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Protocol, cast
 
@@ -92,6 +93,64 @@ def _mlx_repo(size: str) -> str:
     return _MLX_REPOS.get(size, f"mlx-community/whisper-{size}-mlx")
 
 
+@contextmanager
+def _mlx_progress_hook(on_segment: SegmentCallback | None):
+    """Stream mlx_whisper's internal frame progress to ``on_segment``.
+
+    ``mlx_whisper.transcribe`` runs the whole file in one blocking call and
+    exposes no per-segment callback, so progress would otherwise only arrive once
+    the (possibly very long) file is done — a frozen progress bar. It does advance
+    an internal ``tqdm`` over audio frames, so we temporarily swap that tqdm for a
+    subclass whose ``update()`` reports elapsed/total audio seconds and logs a
+    throttled progress line. Best-effort: if mlx's internals change, transcription
+    still runs, just without streamed progress.
+    """
+    if on_segment is None:
+        yield
+        return
+
+    import sys
+    import types
+
+    tmod = sys.modules.get("mlx_whisper.transcribe")
+    base = getattr(getattr(tmod, "tqdm", None), "tqdm", None)
+    if base is None:
+        yield
+        return
+
+    try:
+        from mlx_whisper.audio import HOP_LENGTH, SAMPLE_RATE
+
+        spf = HOP_LENGTH / SAMPLE_RATE
+    except Exception:
+        spf = 0.01  # whisper default: 160 / 16000
+
+    class _HookTqdm(base):
+        def update(self, n=1):
+            try:
+                self._frames = getattr(self, "_frames", 0) + (n or 0)
+                if self.total:
+                    seen = min(self._frames, self.total)
+                    on_segment(seen * spf, self.total * spf)
+                    pct = int(seen / self.total * 100)
+                    if pct >= getattr(self, "_next_log", 0):
+                        self._next_log = pct - (pct % 10) + 10
+                        log.get().info(
+                            "Transcribing… %d%% (%ds / %ds)",
+                            pct, int(seen * spf), int(self.total * spf),
+                        )
+            except Exception:
+                pass
+            return super().update(n)
+
+    saved = tmod.tqdm
+    tmod.tqdm = types.SimpleNamespace(tqdm=_HookTqdm)
+    try:
+        yield
+    finally:
+        tmod.tqdm = saved
+
+
 class MlxWhisperBackend:
     """MLX-based whisper for Apple Silicon GPU (Metal/MPS).
 
@@ -111,24 +170,20 @@ class MlxWhisperBackend:
         import mlx_whisper
 
         m = settings.model
-        # mlx_whisper has no VAD and no beam search (greedy/temperature only),
-        # so vad_filter and beam_size from settings don't apply here.
-        result = mlx_whisper.transcribe(
-            file_path,
-            path_or_hf_repo=self._repo,
-            language=m.language or None,
-        )
+        # mlx_whisper has no VAD and no beam search (greedy/temperature only), so
+        # vad_filter and beam_size from settings don't apply here. Progress is
+        # streamed by hooking its internal tqdm (see _mlx_progress_hook).
+        with _mlx_progress_hook(on_segment):
+            result = mlx_whisper.transcribe(
+                file_path,
+                path_or_hf_repo=self._repo,
+                language=m.language or None,
+            )
         raw = cast("list[dict[str, Any]]", result.get("segments", []))
-        # No streaming hook: segments arrive all at once. Use the last segment's
-        # end as the total so the progress callback fills correctly.
-        total = float(raw[-1]["end"]) if raw else 0.0
-        out = []
-        for s in raw:
-            end = float(s["end"])
-            out.append(Segment(start=float(s["start"]), end=end, text=str(s["text"])))
-            if on_segment:
-                on_segment(end, total)
-        return out
+        return [
+            Segment(start=float(s["start"]), end=float(s["end"]), text=str(s["text"]))
+            for s in raw
+        ]
 
 
 def load_model(settings: "Settings") -> Backend:
