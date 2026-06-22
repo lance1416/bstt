@@ -27,6 +27,8 @@ class _ProcessWorker(QThread):
         # "spawn" (not fork): a fresh interpreter with no inherited Qt/Metal state.
         self._ctx = mp.get_context("spawn")
         self._stop_event = self._ctx.Event()
+        self._proc = None
+        self._stopping = False
 
     def _target(self):
         """Return ``(callable, kwargs)`` to run in the child process."""
@@ -38,6 +40,7 @@ class _ProcessWorker(QThread):
         proc = self._ctx.Process(
             target=func, args=(queue, self._stop_event, kwargs), daemon=True
         )
+        self._proc = proc
         proc.start()
         terminal = False  # saw an explicit "done"/"error" from the child
         try:
@@ -62,12 +65,21 @@ class _ProcessWorker(QThread):
                     break
         finally:
             proc.join()
-            if not terminal and proc.exitcode not in (0, None):
+            # A user-requested stop terminates the child (nonzero exit) — that's
+            # expected, not a crash, so only report unexpected exits.
+            if not terminal and not self._stopping and proc.exitcode not in (0, None):
                 self.error.emit(f"处理进程异常退出（代码 {proc.exitcode}）")
             self.finished.emit()
 
     def stop(self) -> None:
+        # Stop promptly even mid-file: mlx_whisper.transcribe is one blocking call
+        # that never checks stop_event, so set the flag (graceful, between files)
+        # AND terminate the child (handles a long in-progress file).
+        self._stopping = True
         self._stop_event.set()
+        proc = self._proc
+        if proc is not None and proc.is_alive():
+            proc.terminate()
 
 
 class PipelineWorker(_ProcessWorker):
