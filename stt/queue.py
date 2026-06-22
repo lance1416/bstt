@@ -1,6 +1,23 @@
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
+
+
+def _scope(input_dir: str | None) -> tuple[str, list]:
+    """Return a ``(sql_fragment, params)`` that restricts to files under input_dir.
+
+    Jobs store resolved absolute paths, so a job belongs to a directory when its
+    ``file_path`` is under ``resolve(input_dir) + os.sep``. ``None`` → no filter.
+    """
+    if input_dir is None:
+        return "", []
+    base = str(Path(input_dir).resolve())
+    if not base.endswith(os.sep):
+        base += os.sep
+    # Escape LIKE wildcards (\ first, so we don't re-escape our own escapes).
+    pattern = base.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    return " AND file_path LIKE ? ESCAPE '\\'", [pattern]
 
 
 @contextmanager
@@ -42,20 +59,27 @@ def scan_and_enqueue(input_dir: str, db_path: str) -> int:
         return new_count
 
 
-def reset_stale(db_path: str) -> None:
+def reset_stale(db_path: str, input_dir: str | None = None) -> None:
+    clause, params = _scope(input_dir)
     with conn_ctx(db_path) as conn:
         conn.execute(
             "UPDATE jobs SET status='pending', started_at=NULL WHERE status='in_progress'"
+            + clause,
+            params,
         )
 
 
-def next_pending(db_path: str) -> dict | None:
+def next_pending(db_path: str, input_dir: str | None = None) -> dict | None:
+    clause, params = _scope(input_dir)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
-            "SELECT id, file_path FROM jobs WHERE status='pending' ORDER BY id LIMIT 1"
+            "SELECT id, file_path FROM jobs WHERE status='pending'"
+            + clause
+            + " ORDER BY id LIMIT 1",
+            params,
         ).fetchone()
         if row is None:
             conn.rollback()
@@ -89,41 +113,53 @@ def mark_failed(db_path: str, job_id: int, error: str) -> None:
         )
 
 
-def retry_failed(db_path: str) -> int:
+def retry_failed(db_path: str, input_dir: str | None = None) -> int:
+    clause, params = _scope(input_dir)
     with conn_ctx(db_path) as conn:
         cur = conn.execute(
-            "UPDATE jobs SET status='pending', error=NULL WHERE status='failed'"
+            "UPDATE jobs SET status='pending', error=NULL WHERE status='failed'" + clause,
+            params,
         )
         return cur.rowcount
 
 
-def reset_all(db_path: str) -> int:
+def reset_all(db_path: str, input_dir: str | None = None) -> int:
+    clause, params = _scope(input_dir)
     with conn_ctx(db_path) as conn:
         cur = conn.execute(
-            "UPDATE jobs SET status='pending', started_at=NULL, completed_at=NULL, error=NULL"
+            "UPDATE jobs SET status='pending', started_at=NULL, completed_at=NULL,"
+            " error=NULL WHERE 1=1" + clause,
+            params,
         )
         return cur.rowcount
 
 
-def status_counts(db_path: str) -> dict[str, int]:
+def status_counts(db_path: str, input_dir: str | None = None) -> dict[str, int]:
+    clause, params = _scope(input_dir)
     with conn_ctx(db_path) as conn:
         rows = conn.execute(
-            "SELECT status, COUNT(*) as count FROM jobs GROUP BY status"
+            "SELECT status, COUNT(*) as count FROM jobs WHERE 1=1" + clause + " GROUP BY status",
+            params,
         ).fetchall()
         return {row["status"]: row["count"] for row in rows}
 
 
-def failed_jobs(db_path: str) -> list[dict]:
+def failed_jobs(db_path: str, input_dir: str | None = None) -> list[dict]:
+    clause, params = _scope(input_dir)
     with conn_ctx(db_path) as conn:
         rows = conn.execute(
-            "SELECT file_path, error FROM jobs WHERE status='failed'"
+            "SELECT file_path, error FROM jobs WHERE status='failed'" + clause,
+            params,
         ).fetchall()
         return [{"file_path": row["file_path"], "error": row["error"]} for row in rows]
 
 
-def list_jobs(db_path: str) -> list[dict]:
+def list_jobs(db_path: str, input_dir: str | None = None) -> list[dict]:
+    clause, params = _scope(input_dir)
     with conn_ctx(db_path) as conn:
         rows = conn.execute(
-            "SELECT id, file_path, status, started_at, completed_at, error FROM jobs ORDER BY id"
+            "SELECT id, file_path, status, started_at, completed_at, error FROM jobs"
+            " WHERE 1=1" + clause + " ORDER BY id",
+            params,
         ).fetchall()
         return [dict(row) for row in rows]

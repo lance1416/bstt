@@ -65,8 +65,8 @@ def run(
     queue.init_db(db_path)
     writer.init_transcript_db(db_path)
     new_jobs = queue.scan_and_enqueue(input_dir, db_path)
-    queue.reset_stale(db_path)
-    counts = queue.status_counts(db_path)
+    queue.reset_stale(db_path, input_dir)
+    counts = queue.status_counts(db_path, input_dir)
     total = sum(counts.values())
     pending = counts.get("pending", 0)
     logger.info("Queue: %d total jobs, %d pending, %d new", total, pending, new_jobs)
@@ -91,7 +91,7 @@ def run(
         if stop_event and stop_event.is_set():
             logger.info("Pipeline stopped by request")
             break
-        job = queue.next_pending(db_path)
+        job = queue.next_pending(db_path, input_dir)
         if job is None:
             break
 
@@ -121,14 +121,14 @@ def run(
                 del model
                 settings = Settings(model=replace(settings.model, device="cpu", compute_type="int8"))
                 model = transcribe.load_model(settings)
-                queue.reset_stale(db_path)
+                queue.reset_stale(db_path, input_dir)
                 continue
             job_status = "failed"
             logger.error("Failed %s: %s", Path(job_path).name, e)
             queue.mark_failed(db_path, job["id"], str(e))
 
         if on_progress:
-            counts = queue.status_counts(db_path)
+            counts = queue.status_counts(db_path, input_dir)
             on_progress(ProgressEvent(
                 file_path=job_path,
                 status=job_status,
@@ -137,7 +137,7 @@ def run(
                 failed=counts.get("failed", 0),
             ))
 
-    counts = queue.status_counts(db_path)
+    counts = queue.status_counts(db_path, input_dir)
     logger.info(
         "Pipeline finished — done: %d, failed: %d, pending: %d",
         counts.get("done", 0),

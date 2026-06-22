@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 from stt import queue
 
 
@@ -108,3 +109,96 @@ def test_list_jobs_reflects_status_changes(tmp_db, tmp_input):
     jobs = queue.list_jobs(tmp_db)
     statuses = {j["file_path"]: j["status"] for j in jobs}
     assert statuses[job["file_path"]] == "done"
+
+
+# --- per-directory scoping ---------------------------------------------------
+
+
+@pytest.fixture
+def two_dirs(tmp_path):
+    a = tmp_path / "A"
+    a.mkdir()
+    (a / "a1.mp3").touch()
+    (a / "a2.mp3").touch()
+    b = tmp_path / "B"
+    b.mkdir()
+    (b / "b1.mp3").touch()
+    return str(a), str(b)
+
+
+def _enqueue_both(db, dirs):
+    a, b = dirs
+    queue.scan_and_enqueue(a, db)
+    queue.scan_and_enqueue(b, db)
+
+
+def test_next_pending_scoped_to_dir(tmp_db, two_dirs):
+    a, b = two_dirs
+    _enqueue_both(tmp_db, two_dirs)
+    seen = []
+    while (job := queue.next_pending(tmp_db, input_dir=a)) is not None:
+        seen.append(job["file_path"])
+        queue.mark_done(tmp_db, job["id"])
+    assert len(seen) == 2
+    assert all(str(Path(a).resolve()) in p for p in seen)
+    # B's job was never claimed by the A-scoped loop and is still reachable for B
+    jb = queue.next_pending(tmp_db, input_dir=b)
+    assert jb is not None and "b1.mp3" in jb["file_path"]
+
+
+def test_status_counts_scoped(tmp_db, two_dirs):
+    a, b = two_dirs
+    _enqueue_both(tmp_db, two_dirs)
+    assert queue.status_counts(tmp_db, input_dir=a).get("pending") == 2
+    assert queue.status_counts(tmp_db, input_dir=b).get("pending") == 1
+    assert queue.status_counts(tmp_db).get("pending") == 3  # global
+
+
+def test_list_jobs_scoped(tmp_db, two_dirs):
+    a, b = two_dirs
+    _enqueue_both(tmp_db, two_dirs)
+    assert len(queue.list_jobs(tmp_db, input_dir=a)) == 2
+    assert len(queue.list_jobs(tmp_db, input_dir=b)) == 1
+    assert len(queue.list_jobs(tmp_db)) == 3
+
+
+def test_failed_jobs_scoped(tmp_db, two_dirs):
+    a, b = two_dirs
+    _enqueue_both(tmp_db, two_dirs)
+    jb = queue.next_pending(tmp_db, input_dir=b)
+    queue.mark_failed(tmp_db, jb["id"], "err")
+    assert queue.failed_jobs(tmp_db, input_dir=a) == []
+    fb = queue.failed_jobs(tmp_db, input_dir=b)
+    assert len(fb) == 1 and "b1.mp3" in fb[0]["file_path"]
+
+
+def test_retry_failed_scoped(tmp_db, two_dirs):
+    a, b = two_dirs
+    _enqueue_both(tmp_db, two_dirs)
+    ja = queue.next_pending(tmp_db, input_dir=a)
+    queue.mark_failed(tmp_db, ja["id"], "e")
+    jb = queue.next_pending(tmp_db, input_dir=b)
+    queue.mark_failed(tmp_db, jb["id"], "e")
+    assert queue.retry_failed(tmp_db, input_dir=a) == 1
+    assert queue.status_counts(tmp_db, input_dir=b).get("failed") == 1  # B untouched
+
+
+def test_reset_all_scoped(tmp_db, two_dirs):
+    a, b = two_dirs
+    _enqueue_both(tmp_db, two_dirs)
+    ja = queue.next_pending(tmp_db, input_dir=a)
+    queue.mark_done(tmp_db, ja["id"])
+    queue.reset_all(tmp_db, input_dir=a)
+    assert queue.status_counts(tmp_db, input_dir=a).get("pending") == 2
+    assert queue.status_counts(tmp_db, input_dir=a).get("done", 0) == 0
+    assert queue.status_counts(tmp_db, input_dir=b).get("pending") == 1  # B untouched
+
+
+def test_reset_stale_scoped(tmp_db, two_dirs):
+    a, b = two_dirs
+    _enqueue_both(tmp_db, two_dirs)
+    queue.next_pending(tmp_db, input_dir=a)  # one A in_progress
+    queue.next_pending(tmp_db, input_dir=b)  # one B in_progress
+    queue.reset_stale(tmp_db, input_dir=a)
+    assert queue.status_counts(tmp_db, input_dir=a).get("in_progress", 0) == 0
+    assert queue.status_counts(tmp_db, input_dir=b).get("in_progress", 0) == 1

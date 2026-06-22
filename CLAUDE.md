@@ -52,6 +52,11 @@ mechanism. Files are enqueued by resolved path (`INSERT OR IGNORE`, so re-scans 
 idempotent). `next_pending` uses `BEGIN IMMEDIATE` + flip to `in_progress` for atomic claim;
 `reset_stale` reclaims `in_progress` rows left over from a crash on the next run. This is why
 the pipeline is interruptible and restartable — never bypass the queue to "just process a file".
+The queue is **scoped to the active input directory** by path prefix: most queue ops take an
+optional `input_dir=` (`next_pending`, `status_counts`, `list_jobs`, `failed_jobs`,
+`retry_failed`, `reset_all`, `reset_stale`); a job belongs to a dir if its resolved path is
+under it (no dir column). `run(input_dir)` passes it through so a run only processes/reports that
+dir; the GUI Jobs tab scopes to the Run tab's selected folder (`QSettings last_input_folder`).
 
 **Transcribe backends (`stt/transcribe.py`)** — a `Backend` Protocol with two impls chosen by
 `ModelSettings.resolved_device()`:

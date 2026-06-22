@@ -3,6 +3,7 @@ from pathlib import Path
 from PySide6.QtCore import (
     QAbstractTableModel,
     QModelIndex,
+    QSettings,
     QSortFilterProxyModel,
     Qt,
     QTimer,
@@ -61,11 +62,11 @@ class JobTableModel(QAbstractTableModel):
         self.db_path = db_path
         self._rows: list[dict] = []
 
-    def refresh(self) -> None:
+    def refresh(self, input_dir: str | None = None) -> None:
         self.beginResetModel()
         try:
             if Path(self.db_path).exists():
-                self._rows = queue.list_jobs(self.db_path)
+                self._rows = queue.list_jobs(self.db_path, input_dir)
             else:
                 self._rows = []
         except Exception:
@@ -159,11 +160,18 @@ class JobsTab(QWidget):
 
         self.refresh()
 
+    def _active_dir(self) -> str | None:
+        # Scope to the folder selected on the Run tab (persisted there). Falls
+        # back to all jobs when no folder has been chosen yet.
+        val = QSettings("stt", "STTPipeline").value("last_input_folder", "")
+        return str(val) if val else None
+
     def refresh(self) -> None:
-        self._model.refresh()
+        active = self._active_dir()
+        self._model.refresh(active)
         total = self._model.rowCount()
         if Path(self.db_path).exists():
-            counts = queue.status_counts(self.db_path)
+            counts = queue.status_counts(self.db_path, active)
             done = counts.get("done", 0)
             failed = counts.get("failed", 0)
             self._status_label.setText(f"{done} 已完成，{failed} 失败 / {total} 总计")

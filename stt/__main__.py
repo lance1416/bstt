@@ -26,7 +26,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
         log_file=args.log_file,
     )
     if args.force:
-        n = queue.reset_all(args.db)
+        n = queue.reset_all(args.db, args.input)
         log.get().info("--force: reset %d job(s) to pending", n)
 
     settings = Settings.load(args.settings).with_overrides(
@@ -91,7 +91,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
 
 
 def _cmd_status(args: argparse.Namespace) -> None:
-    counts = queue.status_counts(args.db)
+    counts = queue.status_counts(args.db, args.input)
     if not counts:
         print("No jobs found. Run `uv run python -m stt run --input <dir>` first.")
         return
@@ -100,7 +100,7 @@ def _cmd_status(args: argparse.Namespace) -> None:
     print(f"Progress: {done}/{total} files ({done * 100 // total if total else 0}%)")
     for status, count in sorted(counts.items()):
         print(f"  {status}: {count}")
-    failures = queue.failed_jobs(args.db)
+    failures = queue.failed_jobs(args.db, args.input)
     if failures:
         print(f"\nFailed files ({len(failures)}):")
         for job in failures:
@@ -108,7 +108,7 @@ def _cmd_status(args: argparse.Namespace) -> None:
 
 
 def _cmd_retry(args: argparse.Namespace) -> None:
-    n = queue.retry_failed(args.db)
+    n = queue.retry_failed(args.db, args.input)
     print(f"Reset {n} failed job(s) to pending.")
 
 
@@ -169,9 +169,13 @@ def main() -> None:
     run_p.set_defaults(func=_cmd_run)
 
     status_p = sub.add_parser("status", help="Show job queue status")
+    status_p.add_argument("--input", default=None, metavar="DIR",
+                          help="Scope to jobs under this directory (default: all)")
     status_p.set_defaults(func=_cmd_status)
 
     retry_p = sub.add_parser("retry-failed", help="Reset failed jobs to pending")
+    retry_p.add_argument("--input", default=None, metavar="DIR",
+                         help="Scope to jobs under this directory (default: all)")
     retry_p.set_defaults(func=_cmd_retry)
 
     reprocess_p = sub.add_parser(
@@ -190,7 +194,9 @@ def main() -> None:
     reprocess_p.set_defaults(func=_cmd_reprocess)
 
     reset_p = sub.add_parser("reset-all", help="Reset all jobs to pending (re-process everything)")
-    reset_p.set_defaults(func=lambda a: print(f"Reset {queue.reset_all(a.db)} job(s) to pending."))
+    reset_p.add_argument("--input", default=None, metavar="DIR",
+                         help="Scope to jobs under this directory (default: all)")
+    reset_p.set_defaults(func=lambda a: print(f"Reset {queue.reset_all(a.db, a.input)} job(s) to pending."))
 
     args = parser.parse_args()
     args.func(args)
