@@ -79,9 +79,14 @@ gracefully (warns, disables punctuation) — keep it optional.
 `2017-1018`) or `YYYY-MM-DD` form. `search_transcripts` powers GUI full-text-ish search via `LIKE`.
 
 **GUI (`stt/gui/`)** — PySide6, four tabs wired in `main_window.py` (Run / Jobs / Transcripts /
-Config — UI labels are in Chinese). `PipelineWorker` (`worker.py`) runs `pipeline.run` on a
-`QThread`, bridging progress/segment/log via Qt signals and `QtLoggingHandler`; `stop()` sets the
-`stop_event` the pipeline polls.
+Config — UI labels are in Chinese). The workers (`worker.py`) run the pipeline in a **child
+process**, not on the `QThread` directly: on macOS, MLX/Metal GPU work crashes (SIGILL) when it
+runs on a worker thread while the Qt/Cocoa event loop is live on the main thread. The Qt-free
+child entry points live in `stt/procrun.py`; the `QThread` (`_ProcessWorker`) spawns the process
+(`multiprocessing` "spawn"), drains a queue of `(kind, payload)` events, and re-emits them as Qt
+signals (`progress`/`segment`/`log_line`/`error`/`finished`). `stop()` sets a `multiprocessing.Event`
+the pipeline polls between files. Keep heavy ML work out of the GUI process — do not call
+`pipeline.run`/`reprocess` on a `QThread`.
 
 ## Config & data
 
